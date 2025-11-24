@@ -138,30 +138,35 @@ class Config:
     
     def update_from_args(self, args: Any) -> None:
         """
-        从命令行参数更新配置
+        Update config values from parsed CLI arguments.
         
         Args:
-            args: argparse解析的参数
+            args: argparse parsed arguments
         """
-        # 更新实验名称
+        arg_dict = vars(args)
+
+        # 1) Explicit mapping: CLI --model -> config.model.name
+        if arg_dict.get('model'):
+            self.model.name = arg_dict['model']
+        
+        # 2) Update other fields to their matching config sections
+        for key, value in arg_dict.items():
+            if value is None:
+                continue
+            if key in ['config', 'resume', 'model', 'modality']:
+                # config: only used for loading; resume/modality are not config fields
+                continue
+            
+            for section in [self.data, self.model, self.training, self.augmentation, self.experiment]:
+                if hasattr(section, key):
+                    setattr(section, key, value)
+                    break
+        
+        # 3) Update experiment name using final model name and modality
         if hasattr(args, 'modality'):
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             self.experiment.name = f"{self.model.name}_{args.modality}_{timestamp}"
-        
-        # 更新其他参数
-        for key, value in vars(args).items():
-            if value is not None:
-                # 尝试更新各个配置部分
-                if hasattr(self.data, key):
-                    setattr(self.data, key, value)
-                elif hasattr(self.model, key):
-                    setattr(self.model, key, value)
-                elif hasattr(self.training, key):
-                    setattr(self.training, key, value)
-                elif hasattr(self.augmentation, key):
-                    setattr(self.augmentation, key, value)
-                elif hasattr(self.experiment, key):
-                    setattr(self.experiment, key, value)
+
 
 
 def create_default_config() -> Config:

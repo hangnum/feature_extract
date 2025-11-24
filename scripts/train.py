@@ -93,15 +93,25 @@ def main():
     parser.add_argument('--device', type=str, default='cuda', help='设备')
     
     args = parser.parse_args()
-    
-    # 加载配置
+
+    # Load config: CLI path takes precedence, otherwise default file
     if args.config:
         config = Config.from_yaml(args.config)
+        config_source = args.config
     else:
-        config = Config()
-    
-    # 从命令行更新配置
+        default_config_path = Path(project_root) / 'config' / 'default_config.yaml'
+        if default_config_path.exists():
+            config = Config.from_yaml(str(default_config_path))
+            config_source = str(default_config_path)
+        else:
+            config = Config()
+            config_source = 'Config() default'
+
+    print(f'Using config: {config_source}')
+
+    # Apply CLI overrides
     config.update_from_args(args)
+
     
     # 设置随机种子
     set_seed(config.experiment.seed)
