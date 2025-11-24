@@ -12,10 +12,12 @@ project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
 import argparse
+import yaml
 import torch
 import torch.optim as optim
 import pandas as pd
 from torch.utils.data import DataLoader
+from datetime import datetime
 
 from src.data.dataset import MedicalImageDataset
 from src.data.transforms import get_train_transform, get_val_transform
@@ -233,6 +235,25 @@ def main():
         num_epochs=config.training.epochs,
         resume=args.resume
     )
+
+    # 记录最优验证指标（用于最佳超参对比）
+    best_metrics = None
+    val_aucs = trainer.history.get('val_auc', [])
+    if val_aucs:
+        best_idx = max(range(len(val_aucs)), key=lambda i: val_aucs[i])
+        best_metrics = {
+            'epoch': trainer.history['epoch'][best_idx],
+            'val_loss': trainer.history['val_loss'][best_idx],
+            'val_auc': trainer.history['val_auc'][best_idx],
+            'val_accuracy': trainer.history['val_acc'][best_idx],
+            'val_sensitivity': trainer.history['val_sensitivity'][best_idx],
+            'val_specificity': trainer.history['val_specificity'][best_idx],
+            'timestamp': datetime.now().isoformat()
+        }
+    else:
+        logger.warning("未找到验证集指标，best_metrics 为空")
+
+    test_metrics_result = None
     
     # 外验评估（test集）
     test_csv = data_dir / f'test_{args.modality}.csv'
@@ -266,6 +287,7 @@ def main():
                 device=config.training.device
             )
             test_metrics['loss'] = test_loss
+            test_metrics_result = test_metrics
             
             # 记录外验结果
             test_metrics_path = trainer.log_dir / 'test_metrics.csv'
@@ -281,14 +303,42 @@ def main():
             logger.info(f"外验评估记录已保存至: {test_metrics_path}")
     else:
         logger.warning(f"未找到外验数据: {test_csv}，跳过外验评估")
-    
-    # 保存最佳超参数
+
+    # 保存最佳超参数（仅当验证 AUC 提升时更新）
     best_hparams_dir = Path(project_root) / 'config' / 'best_hparams'
     best_hparams_dir.mkdir(parents=True, exist_ok=True)
     best_hparams_path = best_hparams_dir / f'{config.model.name}_{args.modality}.yaml'
-    
-    config.to_yaml(str(best_hparams_path))
-    logger.info(f"最佳超参数已保存至: {best_hparams_path}")
+
+    current_best_auc = best_metrics['val_auc'] if best_metrics else -1
+    previous_best_auc = -1
+    if best_hparams_path.exists():
+        try:
+            prev_data = yaml.safe_load(best_hparams_path.read_text(encoding='utf-8'))
+            if prev_data and isinstance(prev_data, dict):
+                previous_best_auc = prev_data.get('best_metrics', {}).get('val_auc', -1)
+        except Exception as e:
+            logger.warning(f"读取历史最佳超参失败，将直接更新: {e}")
+
+    if best_metrics and current_best_auc > previous_best_auc:
+        to_save = config.to_dict()
+        to_save['best_metrics'] = best_metrics
+        if test_metrics_result:
+            to_save['test_metrics'] = test_metrics_result
+        to_save['updated_at'] = datetime.now().isoformat()
+
+        best_hparams_path.write_text(
+            yaml.safe_dump(to_save, allow_unicode=True, sort_keys=False),
+            encoding='utf-8'
+        )
+        logger.info(
+            f"最佳超参数已更新: val_auc {previous_best_auc:.4f} -> {current_best_auc:.4f} "
+            f"保存至 {best_hparams_path}"
+        )
+    else:
+        logger.info(
+            f"未更新最佳超参数，当前 val_auc={current_best_auc:.4f} "
+            f"历史最佳 val_auc={previous_best_auc:.4f}"
+        )
 
 
 if __name__ == '__main__':
