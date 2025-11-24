@@ -16,6 +16,7 @@ import yaml
 import torch
 import torch.optim as optim
 import pandas as pd
+import numpy as np
 from torch.utils.data import DataLoader
 from datetime import datetime
 
@@ -28,6 +29,21 @@ from src.training.metrics import evaluate_model
 from src.utils.config import Config, save_default_config
 from src.utils.logger import setup_logger
 from src.utils.seed import set_seed
+
+
+def to_builtin(obj):
+    """
+    Convert numpy types to Python builtins for YAML serialization.
+    """
+    if isinstance(obj, dict):
+        return {k: to_builtin(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [to_builtin(v) for v in obj]
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
 
 
 def get_optimizer(model, config):
@@ -254,7 +270,7 @@ def main():
         logger.warning("未找到验证集指标，best_metrics 为空")
 
     test_metrics_result = None
-    
+
     # 外验评估（test集）
     test_csv = data_dir / f'test_{args.modality}.csv'
     if test_csv.exists():
@@ -326,8 +342,9 @@ def main():
             to_save['test_metrics'] = test_metrics_result
         to_save['updated_at'] = datetime.now().isoformat()
 
+        serializable = to_builtin(to_save)
         best_hparams_path.write_text(
-            yaml.safe_dump(to_save, allow_unicode=True, sort_keys=False),
+            yaml.safe_dump(serializable, allow_unicode=True, sort_keys=False),
             encoding='utf-8'
         )
         logger.info(
