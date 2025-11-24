@@ -1,0 +1,40 @@
+# 多模态医疗图像特征提取项目 - 默认配置
+
+data:
+  root_dir: "D:\\data\\raw\\Grade"
+  modalities:
+    - A
+    - P
+  train_ratio: 0.7
+  image_size: 224
+  num_workers: 4
+
+model:
+  name: resnet18  # resnet18, resnet50, swin_t
+  pretrained: true
+  num_classes: 2
+  freeze_stages: 0  # ResNet50时设为3
+
+training:
+  batch_size: 64
+  epochs: 100
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  loss_type: ce  # ce, focal, asymmetric
+  optimizer: adamw  # adam, sgd, adamw
+  scheduler: cosine  # cosine, step, plateau
+  early_stop_patience: 10
+  device: cuda
+
+augmentation:
+  horizontal_flip: true
+  rotation_degrees: 15
+  normalize_mean: 0.5
+  normalize_std: 0.5
+
+experiment:
+  name: ""
+  seed: 42
+  output_dir: "D:\\outputs\\feature_extract"
+  save_best_only: true
+  log_interval: 10

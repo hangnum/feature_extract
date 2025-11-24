@@ -1,0 +1,34 @@
+augmentation:
+  horizontal_flip: true
+  normalize_mean: 0.5
+  normalize_std: 0.5
+  rotation_degrees: 15
+data:
+  image_size: 224
+  modalities:
+  - A
+  - P
+  num_workers: 4
+  root_dir: D:\data\raw\Grade
+  train_ratio: 0.7
+experiment:
+  log_interval: 10
+  name: resnet18_A_20251124_080656
+  output_dir: D:\outputs\feature_extract
+  save_best_only: true
+  seed: 42
+model:
+  freeze_stages: 0
+  name: resnet18
+  num_classes: 2
+  pretrained: true
+training:
+  batch_size: 64
+  device: cuda
+  early_stop_patience: 10
+  epochs: 50
+  learning_rate: 0.0001
+  loss_type: ce
+  optimizer: adam
+  scheduler: cosine
+  weight_decay: 0.0001
