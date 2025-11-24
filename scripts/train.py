@@ -290,7 +290,12 @@ def main():
             # 加载最佳模型进行评估
             best_checkpoint = trainer.checkpoint_dir / 'best_model.pth'
             if best_checkpoint.exists():
-                checkpoint = torch.load(best_checkpoint, map_location=config.training.device)
+                # weights_only=False 保持旧版行为（检查点来自本地训练，可信）
+                checkpoint = torch.load(
+                    best_checkpoint,
+                    map_location=config.training.device,
+                    weights_only=False
+                )
                 model.load_state_dict(checkpoint['model_state_dict'])
                 logger.info(f"已加载最佳模型进行外验评估: {best_checkpoint}")
             else:
