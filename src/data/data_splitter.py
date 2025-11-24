@@ -1,16 +1,60 @@
 """
-数据集划分模块
+Dataset splitting utilities.
 
-按照医院和病人ID划分训练集、验证集和测试集
+Split patients into train/val/test with hospital-based logic and stratified
+sampling for the JM hospital.
 """
 
 from pathlib import Path
 from typing import Dict, List, Tuple
-import pandas as pd
 import logging
-from sklearn.model_selection import train_test_split
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import StratifiedShuffleSplit
 
 logger = logging.getLogger("feature_extract")
+
+
+def _stratified_train_val_split(
+    patient_ids: List[str],
+    labels: List[int],
+    train_ratio: float,
+    random_state: int
+) -> Tuple[List[str], List[str]]:
+    """
+    Stratified split for JM patients. Falls back to deterministic random split
+    if stratification is impossible (e.g., label counts < 2).
+    """
+    label_counts = pd.Series(labels).value_counts().to_dict()
+    logger.info(f"JM label counts: {label_counts}")
+
+    if len(set(labels)) < 2 or any(count < 2 for count in label_counts.values()):
+        logger.warning("Insufficient label diversity for stratified split, using random split instead.")
+        rng = np.random.default_rng(random_state)
+        indices = rng.permutation(len(patient_ids))
+        split_idx = int(len(patient_ids) * train_ratio)
+        train_idx, val_idx = indices[:split_idx], indices[split_idx:]
+        return [patient_ids[i] for i in train_idx], [patient_ids[i] for i in val_idx]
+
+    splitter = StratifiedShuffleSplit(
+        n_splits=1,
+        train_size=train_ratio,
+        random_state=random_state
+    )
+    train_idx, val_idx = next(splitter.split(patient_ids, labels))
+    return [patient_ids[i] for i in train_idx], [patient_ids[i] for i in val_idx]
+
+
+def _log_label_distribution(name: str, patients: Dict[str, Dict]) -> None:
+    """Log label counts for a split."""
+    if not patients:
+        logger.info(f"{name} is empty.")
+        return
+    label_counts: Dict[int, int] = {}
+    for patient_info in patients.values():
+        label = patient_info['label']
+        label_counts[label] = label_counts.get(label, 0) + 1
+    logger.info(f"{name} label distribution: {label_counts}")
 
 
 def split_by_hospital(
@@ -20,73 +64,53 @@ def split_by_hospital(
     random_state: int = 42
 ) -> Tuple[Dict, Dict, Dict]:
     """
-    按医院划分数据集
-    
-    - JM医院: 按病人ID进行分层抽样，7:3划分训练集和验证集
-    - 其他医院: 全部作为测试集（外验）
-    
-    Args:
-        patient_dict: 病人数据字典
-        jm_hospital: JM医院的名称
-        train_ratio: 训练集比例
-        random_state: 随机种子
-    
-    Returns:
-        (训练集, 验证集, 测试集) 三个病人数据字典
+    Split patients by hospital.
+
+    - JM hospital: stratified split (train/val).
+    - Other hospitals: test (external validation).
     """
-    logger.info(f"开始划分数据集 (训练集比例: {train_ratio})")
-    
-    # 分离JM医院和其他医院的数据
-    jm_patients = {}
-    other_patients = {}
-    
+    logger.info(f"Splitting dataset (train_ratio={train_ratio})")
+
+    jm_patients: Dict[str, Dict] = {}
+    other_patients: Dict[str, Dict] = {}
+
     for patient_id, patient_info in patient_dict.items():
         if patient_info['hospital'] == jm_hospital:
             jm_patients[patient_id] = patient_info
         else:
             other_patients[patient_id] = patient_info
-    
-    logger.info(f"JM医院病人数: {len(jm_patients)}")
-    logger.info(f"其他医院病人数: {len(other_patients)}")
-    
-    # JM医院按7:3划分
+
+    logger.info(f"JM patients: {len(jm_patients)}")
+    logger.info(f"Other hospital patients (test): {len(other_patients)}")
+
     if len(jm_patients) == 0:
-        logger.warning("未找到JM医院的数据！")
-        train_patients = {}
-        val_patients = {}
+        logger.warning("No JM patients found; skipping train/val split.")
+        train_patients: Dict[str, Dict] = {}
+        val_patients: Dict[str, Dict] = {}
     else:
         jm_patient_ids = list(jm_patients.keys())
         jm_labels = [jm_patients[pid]['label'] for pid in jm_patient_ids]
-        
-        # 分层抽样
-        train_ids, val_ids = train_test_split(
+
+        train_ids, val_ids = _stratified_train_val_split(
             jm_patient_ids,
-            train_size=train_ratio,
-            stratify=jm_labels,
-            random_state=random_state
+            jm_labels,
+            train_ratio,
+            random_state
         )
-        
+
         train_patients = {pid: jm_patients[pid] for pid in train_ids}
         val_patients = {pid: jm_patients[pid] for pid in val_ids}
-        
-        logger.info(f"训练集病人数: {len(train_patients)}")
-        logger.info(f"验证集病人数: {len(val_patients)}")
-    
-    # 其他医院作为测试集
+
+        logger.info(f"Train patients: {len(train_patients)}")
+        logger.info(f"Val patients: {len(val_patients)}")
+
     test_patients = other_patients
-    logger.info(f"测试集病人数: {len(test_patients)}")
-    
-    # 打印每个集合的标签分布
-    for name, patients in [('训练集', train_patients), 
-                           ('验证集', val_patients), 
-                           ('测试集', test_patients)]:
-        if patients:
-            label_counts = {}
-            for patient_info in patients.values():
-                label = patient_info['label']
-                label_counts[label] = label_counts.get(label, 0) + 1
-            logger.info(f"{name}标签分布: {label_counts}")
-    
+    logger.info(f"Test patients: {len(test_patients)}")
+
+    _log_label_distribution("Train", train_patients)
+    _log_label_distribution("Val", val_patients)
+    _log_label_distribution("Test", test_patients)
+
     return train_patients, val_patients, test_patients
 
 
@@ -98,45 +122,35 @@ def generate_split_csv(
     output_dir: str
 ) -> None:
     """
-    生成训练集、验证集、测试集的CSV文件
-    
-    CSV格式: image_path,label
-    
-    Args:
-        train_patients: 训练集病人数据
-        val_patients: 验证集病人数据
-        test_patients: 测试集病人数据
-        modality: 模态名称 (A or P)
-        output_dir: 输出目录
+    Generate CSVs for train/val/test splits.
+
+    CSV columns: patient_id, image_path, label
     """
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    
+
     def create_csv(patients: Dict[str, Dict], split_name: str) -> None:
-        """创建单个CSV文件"""
         data = []
-        
+
         for patient_id, patient_info in patients.items():
             image_paths = patient_info['image_paths'].get(modality, [])
             label = patient_info['label']
-            
+
             for img_path in image_paths:
                 data.append({
                     'patient_id': patient_id,
                     'image_path': img_path,
                     'label': label
                 })
-        
-        # 始终生成CSV，即便为空也生成文件，便于下游检测是否存在外验/测试集
+
         df = pd.DataFrame(data, columns=['patient_id', 'image_path', 'label'])
         csv_path = output_path / f"{split_name}_{modality}.csv"
         df.to_csv(csv_path, index=False, encoding='utf-8')
         if data:
-            logger.info(f"保存 {split_name}_{modality}.csv: {len(df)} 条记录")
+            logger.info(f"Saved {split_name}_{modality}.csv with {len(df)} rows")
         else:
-            logger.warning(f"{split_name}_{modality} 没有数据，已生成空文件: {csv_path}")
-    
-    # 生成三个CSV文件
+            logger.warning(f"{split_name}_{modality} is empty; created placeholder at {csv_path}")
+
     create_csv(train_patients, 'train')
     create_csv(val_patients, 'val')
     create_csv(test_patients, 'test')
@@ -150,27 +164,18 @@ def generate_all_splits(
     random_state: int = 42
 ) -> None:
     """
-    生成所有模态的数据划分CSV文件
-    
-    Args:
-        patient_dict: 病人数据字典
-        modalities: 模态列表
-        output_dir: 输出目录
-        train_ratio: 训练集比例
-        random_state: 随机种子
+    Generate split CSVs for all modalities.
     """
-    logger.info(f"开始生成数据划分文件，模态: {modalities}")
-    
-    # 划分数据集
+    logger.info(f"Generating split CSVs for modalities: {modalities}")
+
     train_patients, val_patients, test_patients = split_by_hospital(
         patient_dict,
         train_ratio=train_ratio,
         random_state=random_state
     )
-    
-    # 为每个模态生成CSV文件
+
     for modality in modalities:
-        logger.info(f"\n处理模态: {modality}")
+        logger.info(f"\nProcessing modality {modality}")
         generate_split_csv(
             train_patients,
             val_patients,
@@ -178,5 +183,5 @@ def generate_all_splits(
             modality,
             output_dir
         )
-    
-    logger.info(f"\n所有数据划分文件已保存至: {output_dir}")
+
+    logger.info(f"\nSplit files saved to: {output_dir}")

@@ -1,34 +1,49 @@
-augmentation:
-  horizontal_flip: true
-  normalize_mean: 0.5
-  normalize_std: 0.5
-  rotation_degrees: 15
 data:
-  image_size: 224
+  root_dir: D:\data\raw\Grade
   modalities:
   - A
   - P
-  num_workers: 4
-  root_dir: D:\data\raw\Grade
   train_ratio: 0.7
+  image_size: 224
+  num_workers: 8
+model:
+  name: resnet18
+  pretrained: true
+  num_classes: 2
+  freeze_stages: 0
+training:
+  batch_size: 128
+  epochs: 1
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  loss_type: ce
+  optimizer: adamw
+  scheduler: cosine
+  early_stop_patience: 10
+  device: cuda
+augmentation:
+  horizontal_flip: true
+  rotation_degrees: 15
+  normalize_mean: 0.5
+  normalize_std: 0.5
 experiment:
-  log_interval: 10
-  name: resnet18_A_20251124_080656
+  name: resnet18_A_20251124_140338
+  seed: 42
   output_dir: D:\outputs\feature_extract
   save_best_only: true
-  seed: 42
-model:
-  freeze_stages: 0
-  name: resnet18
-  num_classes: 2
-  pretrained: true
-training:
-  batch_size: 64
-  device: cuda
-  early_stop_patience: 10
-  epochs: 50
-  learning_rate: 0.0001
-  loss_type: ce
-  optimizer: adam
-  scheduler: cosine
-  weight_decay: 0.0001
+  log_interval: 10
+best_metrics:
+  epoch: 1
+  val_loss: 0.6414427071809768
+  val_auc: 0.6051900368604426
+  val_accuracy: 0.6514472075010191
+  val_sensitivity: 0.2570781426953567
+  val_specificity: 0.8732484076433121
+  timestamp: '2025-11-24T14:05:04.246132'
+test_metrics:
+  accuracy: 0.5540453074433657
+  auc: 0.599293379578668
+  sensitivity: 0.2958477508650519
+  specificity: 0.8110202324580285
+  loss: 0.7242636382579803
+updated_at: '2025-11-24T14:05:45.969008'
