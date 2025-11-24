@@ -14,6 +14,7 @@ sys.path.insert(0, str(project_root))
 import argparse
 import torch
 import torch.optim as optim
+import pandas as pd
 from torch.utils.data import DataLoader
 
 from src.data.dataset import MedicalImageDataset
@@ -21,6 +22,7 @@ from src.data.transforms import get_train_transform, get_val_transform
 from src.models.model_loader import load_model
 from src.models.losses import get_loss_function
 from src.training.trainer import Trainer
+from src.training.metrics import evaluate_model
 from src.utils.config import Config, save_default_config
 from src.utils.logger import setup_logger
 from src.utils.seed import set_seed
@@ -231,6 +233,54 @@ def main():
         num_epochs=config.training.epochs,
         resume=args.resume
     )
+    
+    # 外验评估（test集）
+    test_csv = data_dir / f'test_{args.modality}.csv'
+    if test_csv.exists():
+        test_dataset = MedicalImageDataset(str(test_csv), transform=val_transform)
+        
+        if len(test_dataset) == 0:
+            logger.warning("外验集为空，跳过外验评估")
+        else:
+            test_loader = DataLoader(
+                test_dataset,
+                batch_size=config.training.batch_size,
+                shuffle=False,
+                num_workers=config.data.num_workers,
+                pin_memory=True
+            )
+            
+            # 加载最佳模型进行评估
+            best_checkpoint = trainer.checkpoint_dir / 'best_model.pth'
+            if best_checkpoint.exists():
+                checkpoint = torch.load(best_checkpoint, map_location=config.training.device)
+                model.load_state_dict(checkpoint['model_state_dict'])
+                logger.info(f"已加载最佳模型进行外验评估: {best_checkpoint}")
+            else:
+                logger.warning("未找到最佳模型检查点，使用当前模型进行外验评估")
+            
+            test_loss, test_metrics = evaluate_model(
+                model=model,
+                dataloader=test_loader,
+                criterion=criterion,
+                device=config.training.device
+            )
+            test_metrics['loss'] = test_loss
+            
+            # 记录外验结果
+            test_metrics_path = trainer.log_dir / 'test_metrics.csv'
+            pd.DataFrame([test_metrics]).to_csv(test_metrics_path, index=False)
+            
+            logger.info(
+                f"外验完成 | Loss: {test_loss:.4f} | "
+                f"AUC: {test_metrics['auc']:.4f} | "
+                f"Acc: {test_metrics['accuracy']:.4f} | "
+                f"Sensitivity: {test_metrics['sensitivity']:.4f} | "
+                f"Specificity: {test_metrics['specificity']:.4f}"
+            )
+            logger.info(f"外验评估记录已保存至: {test_metrics_path}")
+    else:
+        logger.warning(f"未找到外验数据: {test_csv}，跳过外验评估")
     
     # 保存最佳超参数
     best_hparams_dir = Path(project_root) / 'config' / 'best_hparams'

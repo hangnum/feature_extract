@@ -127,13 +127,14 @@ def generate_split_csv(
                     'label': label
                 })
         
+        # 始终生成CSV，即便为空也生成文件，便于下游检测是否存在外验/测试集
+        df = pd.DataFrame(data, columns=['patient_id', 'image_path', 'label'])
+        csv_path = output_path / f"{split_name}_{modality}.csv"
+        df.to_csv(csv_path, index=False, encoding='utf-8')
         if data:
-            df = pd.DataFrame(data)
-            csv_path = output_path / f"{split_name}_{modality}.csv"
-            df.to_csv(csv_path, index=False, encoding='utf-8')
             logger.info(f"保存 {split_name}_{modality}.csv: {len(df)} 条记录")
         else:
-            logger.warning(f"{split_name}_{modality} 没有数据")
+            logger.warning(f"{split_name}_{modality} 没有数据，已生成空文件: {csv_path}")
     
     # 生成三个CSV文件
     create_csv(train_patients, 'train')
