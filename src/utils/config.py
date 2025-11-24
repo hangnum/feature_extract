@@ -41,6 +41,7 @@ class TrainingConfig:
     optimizer: str = "adam"  # adam, sgd, adamw
     scheduler: str = "cosine"  # cosine, step, plateau
     early_stop_patience: int = 10
+    early_stop_enabled: bool = True
     device: str = "cuda"
     
 

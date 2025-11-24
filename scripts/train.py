@@ -111,6 +111,7 @@ def main():
     parser.add_argument('--loss_type', type=str, default=None, help='损失函数类型')
     parser.add_argument('--resume', action='store_true', help='从检查点恢复训练')
     parser.add_argument('--device', type=str, default='cuda', help='设备')
+    parser.add_argument('--disable_early_stop', action='store_true', help='关闭早停')
     
     args = parser.parse_args()
 
@@ -131,6 +132,10 @@ def main():
 
     # Apply CLI overrides
     config.update_from_args(args)
+
+    # 处理早停开关（优先命令行）
+    if args.disable_early_stop:
+        config.training.early_stop_enabled = False
 
     
     # 设置随机种子
@@ -157,6 +162,7 @@ def main():
     logger.info(f"  Optimizer: {config.training.optimizer}")
     logger.info(f"  Scheduler: {config.training.scheduler}")
     logger.info(f"  Early Stop Patience: {config.training.early_stop_patience}")
+    logger.info(f"  Early Stop Enabled: {config.training.early_stop_enabled}")
     
     # 保存配置
     config_save_path = Path(config.experiment.output_dir) / 'logs' / config.experiment.name / 'config.yaml'
@@ -243,6 +249,7 @@ def main():
         output_dir=config.experiment.output_dir,
         experiment_name=config.experiment.name,
         early_stop_patience=config.training.early_stop_patience,
+        early_stop_enabled=config.training.early_stop_enabled,
         log_interval=config.experiment.log_interval
     )
     

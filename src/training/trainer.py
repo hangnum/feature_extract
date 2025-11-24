@@ -35,23 +35,25 @@ class Trainer:
         output_dir: str = './outputs',
         experiment_name: str = 'experiment',
         early_stop_patience: int = 10,
+        early_stop_enabled: bool = True,
         log_interval: int = 10
     ):
         """
-        初始化训练器
+        ??????
         
         Args:
-            model: 模型
-            train_loader: 训练数据加载器
-            val_loader: 验证数据加载器
-            criterion: 损失函数
-            optimizer: 优化器
-            scheduler: 学习率调度器
-            device: 设备
-            output_dir: 输出目录
-            experiment_name: 实验名称
-            early_stop_patience: 早停耐心值
-            log_interval: 日志记录间隔
+            model: ??
+            train_loader: ???????
+            val_loader: ???????
+            criterion: ????
+            optimizer: ???
+            scheduler: ??????
+            device: ??
+            output_dir: ????
+            experiment_name: ????
+            early_stop_patience: ?????
+            early_stop_enabled: ??????
+            log_interval: ??????
         """
         self.model = model.to(device)
         self.train_loader = train_loader
@@ -61,6 +63,7 @@ class Trainer:
         self.scheduler = scheduler
         self.device = device
         self.early_stop_patience = early_stop_patience
+        self.early_stop_enabled = early_stop_enabled
         self.log_interval = log_interval
         
         # 创建输出目录
@@ -191,44 +194,41 @@ class Trainer:
     
     def train(self, num_epochs: int, resume: bool = False) -> None:
         """
-        训练模型
-        
+        Train the model.
+
         Args:
-            num_epochs: 训练轮数
-            resume: 是否从检查点恢复训练
+            num_epochs: total epochs to run
+            resume: whether to resume from latest checkpoint
         """
-        # 恢复训练
         if resume:
             latest_checkpoint = self.checkpoint_dir / 'latest.pth'
             if latest_checkpoint.exists():
                 self.load_checkpoint(str(latest_checkpoint))
-                logger.info("从最新检查点恢复训练")
-        
+                logger.info("Resumed from latest checkpoint")
+
         logger.info("=" * 60)
-        logger.info("开始训练")
+        logger.info("Start training")
         logger.info("=" * 60)
-        logger.info(f"总epoch数: {num_epochs}")
-        logger.info(f"训练集大小: {len(self.train_loader.dataset)}")
-        logger.info(f"验证集大小: {len(self.val_loader.dataset)}")
-        logger.info(f"早停耐心值: {self.early_stop_patience}")
-        
+        logger.info(f"Total epochs: {num_epochs}")
+        logger.info(f"Train size: {len(self.train_loader.dataset)}")
+        logger.info(f"Val size: {len(self.val_loader.dataset)}")
+        if self.early_stop_enabled:
+            logger.info(f"Early stop enabled, patience: {self.early_stop_patience}")
+        else:
+            logger.info("Early stop disabled")
+
         for epoch in range(self.current_epoch, num_epochs):
             self.current_epoch = epoch
-            
-            # 训练
+
             train_loss = self.train_epoch()
-            
-            # 验证
             val_loss, val_metrics = self.validate()
-            
-            # 更新学习率
+
             if self.scheduler is not None:
                 if isinstance(self.scheduler, optim.lr_scheduler.ReduceLROnPlateau):
                     self.scheduler.step(val_metrics['auc'])
                 else:
                     self.scheduler.step()
-            
-            # 记录历史
+
             self.history['epoch'].append(epoch + 1)
             self.history['train_loss'].append(train_loss)
             self.history['val_loss'].append(val_loss)
@@ -236,16 +236,14 @@ class Trainer:
             self.history['val_auc'].append(val_metrics['auc'])
             self.history['val_sensitivity'].append(val_metrics['sensitivity'])
             self.history['val_specificity'].append(val_metrics['specificity'])
-            
-            # TensorBoard记录
+
             self.writer.add_scalar('Loss/train', train_loss, epoch)
             self.writer.add_scalar('Loss/val', val_loss, epoch)
             self.writer.add_scalar('Metrics/accuracy', val_metrics['accuracy'], epoch)
             self.writer.add_scalar('Metrics/auc', val_metrics['auc'], epoch)
             self.writer.add_scalar('Metrics/sensitivity', val_metrics['sensitivity'], epoch)
             self.writer.add_scalar('Metrics/specificity', val_metrics['specificity'], epoch)
-            
-            # 打印信息
+
             logger.info(
                 f"Epoch {epoch + 1}/{num_epochs} | "
                 f"Train Loss: {train_loss:.4f} | "
@@ -253,33 +251,32 @@ class Trainer:
                 f"Val AUC: {val_metrics['auc']:.4f} | "
                 f"Val Acc: {val_metrics['accuracy']:.4f}"
             )
-            
-            # 检查是否为最佳模型
+
             is_best = val_metrics['auc'] > self.best_val_auc
             if is_best:
                 self.best_val_auc = val_metrics['auc']
                 self.epochs_without_improvement = 0
             else:
-                self.epochs_without_improvement += 1
-            
-            # 保存检查点
+                if self.early_stop_enabled:
+                    self.epochs_without_improvement += 1
+                else:
+                    self.epochs_without_improvement = 0
+
             self.save_checkpoint(is_best=is_best)
-            
-            # 早停
-            if self.epochs_without_improvement >= self.early_stop_patience:
-                logger.info(f"\n早停触发！{self.early_stop_patience} 个epoch内无改善")
+
+            if self.early_stop_enabled and self.epochs_without_improvement >= self.early_stop_patience:
+                logger.info(f"\nEarly stopping triggered! No improvement for {self.early_stop_patience} epochs")
                 break
-        
-        # 保存训练历史
+
         self.save_history()
-        
+
         logger.info("=" * 60)
-        logger.info("训练完成！")
-        logger.info(f"最佳验证AUC: {self.best_val_auc:.4f}")
+        logger.info("Training finished")
+        logger.info(f"Best Val AUC: {self.best_val_auc:.4f}")
         logger.info("=" * 60)
-        
+
         self.writer.close()
-    
+
     def save_history(self) -> None:
         """保存训练历史到CSV"""
         history_df = pd.DataFrame(self.history)

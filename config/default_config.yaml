@@ -7,7 +7,7 @@ data:
     - P
   train_ratio: 0.7
   image_size: 224
-  num_workers: 4
+  num_workers: 8
 
 model:
   name: resnet18  # resnet18, resnet50, swin_t
@@ -24,6 +24,7 @@ training:
   optimizer: adamw  # adam, sgd, adamw
   scheduler: cosine  # cosine, step, plateau
   early_stop_patience: 10
+  early_stop_enabled: true
   device: cuda
 
 augmentation:
