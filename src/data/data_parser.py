@@ -17,83 +17,75 @@ def parse_data_directory(
     modalities: List[str] = ['A', 'P']
 ) -> Dict[str, Dict]:
     """
-    解析数据目录，构建病人级数据字典
-    
-    数据结构: root_dir/hospital/fold/label/patient_id/modality/image.png
-    
-    Args:
-        root_dir: 数据根目录
-        modalities: 需要的模态列表
-    
-    Returns:
-        病人数据字典，格式为:
-        {
-            'patient_id': {
-                'hospital': str,
-                'label': int,  # grade0->0, grade1->1
-                'image_paths': {
-                    'A': [path1, path2, ...],
-                    'P': [path1, path2, ...]
-                }
-            }
-        }
+    Parse medical image directory into a patient-level dictionary.
+
+    Supports paths with or without a fold level:
+      - root_dir/Grade/hospital/fold/label/patient_id/modality/image.png
+      - root_dir/Grade/hospital/label/patient_id/modality/image.png
     """
     root_path = Path(root_dir)
-    
+
     if not root_path.exists():
-        raise FileNotFoundError(f"数据目录不存在: {root_dir}")
-    
-    logger.info(f"开始解析数据目录: {root_dir}")
-    
+        raise FileNotFoundError(f"???????: {root_dir}")
+
+    logger.info(f"????????: {root_dir}")
+
     patient_data = {}
-    
-    # 遍历所有图片文件
+
     for img_path in root_path.rglob("*.png"):
-        # 解析路径: .../hospital/fold/label/patient_id/modality/image.png
         parts = img_path.parts
-        
+
         try:
-            # 找到hospital的位置（Grade目录的下一级）
             grade_idx = parts.index('Grade')
-            
-            hospital = parts[grade_idx + 1]
-            # fold会被跳过（忽略fold信息）
-            label_str = parts[grade_idx + 3]  # grade0 或 grade1
-            patient_id = parts[grade_idx + 4]
-            modality = parts[grade_idx + 5]
-            
-            # 只处理需要的模态
+            rel_parts = parts[grade_idx + 1:]
+
+            if len(rel_parts) < 5:
+                logger.warning(f"?????????: {img_path}")
+                continue
+
+            hospital = rel_parts[0]
+
+            if rel_parts[1].startswith('grade'):
+                # no fold
+                label_str = rel_parts[1]
+                patient_id = rel_parts[2]
+                modality = rel_parts[3]
+            else:
+                # with fold
+                if len(rel_parts) < 6:
+                    logger.warning(f"???????????: {img_path}")
+                    continue
+                label_str = rel_parts[2]
+                patient_id = rel_parts[3]
+                modality = rel_parts[4]
+
             if modality not in modalities:
                 continue
-            
-            # 转换标签
+
             if label_str == 'grade0':
                 label = 0
             elif label_str == 'grade1':
                 label = 1
             else:
-                logger.warning(f"未知标签: {label_str}, 跳过")
+                logger.warning(f"????: {label_str}, ??")
                 continue
-            
-            # 初始化病人数据
+
             if patient_id not in patient_data:
                 patient_data[patient_id] = {
                     'hospital': hospital,
                     'label': label,
                     'image_paths': {m: [] for m in modalities}
                 }
-            
-            # 添加图片路径
-            patient_data[patient_id]['image_paths'][modality].append(str(img_path))
-            
-        except (ValueError, IndexError) as e:
-            logger.warning(f"解析路径失败: {img_path}, 错误: {e}")
-            continue
-    
-    logger.info(f"解析完成，共找到 {len(patient_data)} 个病人")
-    
-    return patient_data
 
+            patient_data[patient_id]['image_paths'][modality].append(str(img_path))
+
+        except (ValueError, IndexError) as e:
+            logger.warning(f"??????: {img_path}, ??: {e}")
+            continue
+
+    logger.info(f"???????? {len(patient_data)} ???")
+
+    return patient_data
 
 def validate_patient_data(
     patient_dict: Dict[str, Dict],
