@@ -1,24 +1,41 @@
-# 多模态医疗图像特征提取项目
+# 多模态医疗图像特征提取与融合项目
 
-基于深度学习的多模态医疗图像分类和特征提取系统，支持ResNet和Swin Transformer等预训练模型。
+基于深度学习的多模态医疗图像分类、特征提取与智能融合系统，支持ResNet、Swin Transformer等预训练模型，集成CMTA跨模态 transformer和ELM极限学习机等先进融合算法。
 
 ## 项目概述
 
 本项目用于处理医疗影像数据（224×224灰度图），主要功能包括：
 
-- **数据预处理**：解析原始数据，按医院和模态划分数据集
-- **模型训练**：使用预训练模型进行迁移学习和微调
+### 核心功能
+- **数据预处理**：解析原始数据，按医院和模态划分数据集，支持分层抽样
+- **单模态训练**：使用预训练模型（ResNet、Swin Transformer）进行迁移学习和微调
 - **特征提取**：提取病人级特征用于后续分析
-- **特征融合**：对齐多模态特征，支持后续融合分析（均值池化+拼接）
-- **实验管理**：完整的日志记录和模型管理
+- **多模态融合**：集成多种先进融合算法
+  - CMTA (Cross-Modal Transformer with Alignment)：跨模态Transformer融合
+  - ELM (Extreme Learning Machine)：极限学习机特征聚合
+  - Sequence Fusion：时序多模态融合
+- **实验管理**：完整的日志记录、模型管理和可视化分析
+
+### 技术特色
+- **知识分解**：CMTA模型支持跨模态知识分解与重组
+- **原型学习**：基于原型库的知识记忆与检索机制
+- **特征选择**：ELM集成U-test特征重要性筛选
+- **端到端训练**：支持多损失函数联合优化
 
 ## 最近更新
 
+- **2024-11** (重大版本更新):
+  - **CMTA多模态融合**：集成跨模态Transformer，支持知识分解和原型学习
+  - **ELM特征聚合**：实现极限学习机+U-test特征选择流水线
+  - **Sequence Fusion**：支持时序多模态数据融合分析
+  - **可视化增强**：新增训练曲线绘制和结果分析工具
+  - **CLI扩展**：管理脚本支持CMTA、ELM、可视化等新功能
+
 - **2023-11**:
-  - 新增 `manage.py` 统一管理脚本，简化操作流程。
-  - 实现多模态特征融合（Feature Fusion），采用均值池化后拼接的策略。
-  - 优化数据划分逻辑，JM医院数据默认采用分层抽样（Stratified Sampling）。
-  - 增加关闭早停（Early Stopping）的选项。
+  - 新增 `manage.py` 统一管理脚本，简化操作流程
+  - 实现基础特征融合，采用均值池化后拼接策略
+  - 优化数据划分逻辑，JM医院数据默认采用分层抽样
+  - 增加关闭早停功能的选项
 
 ## 环境配置
 
@@ -31,12 +48,28 @@ pip install -r requirements.txt
 
 ### 主要依赖
 
+#### 核心框架
 - PyTorch >= 2.0.0
 - torchvision >= 0.15.0
 - timm >= 0.9.0
+
+#### 数据处理
 - scikit-learn >= 1.3.0
 - pandas >= 2.0.0
+- numpy >= 1.24.0
+- scipy >= 1.10.0
+
+#### CMTA/ELM专用依赖
+- einops >= 0.7.0          # 张量操作库
+- numba >= 0.58.0          # 高性能数值计算
+- optuna >= 3.0.0          # 超参数优化（ELM）
+
+#### 可视化和工具
+- matplotlib >= 3.7.0
+- seaborn >= 0.12.0
+- tensorboard >= 2.10.0
 - PyYAML >= 6.0
+- tqdm >= 4.64.0
 
 ## 项目结构
 
@@ -44,9 +77,11 @@ pip install -r requirements.txt
 feature_extract/
 ├── config/                      # 配置文件
 │   ├── default_config.yaml      # 默认配置
+│   ├── elm_config.example.json  # ELM配置模板
 │   └── best_hparams/            # 最佳超参数记录
 │       ├── resnet18_A.yaml
-│       └── resnet50_P.yaml
+│       ├── resnet50_P.yaml
+│       └── cmta.yaml           # CMTA最佳配置
 ├── data/
 │   ├── splits/                  # 数据划分CSV文件
 │   │   ├── train_{modality}.csv
@@ -61,26 +96,52 @@ feature_extract/
 │   │   ├── data_parser.py       # 数据解析
 │   │   ├── data_splitter.py     # 数据划分
 │   │   ├── dataset.py           # 数据集类
+│   │   ├── cmta_dataset.py      # CMTA专用数据集
 │   │   └── transforms.py        # 数据增强
 │   ├── models/                  # 模型模块
 │   │   ├── model_loader.py      # 模型加载
+│   │   ├── cmta.py              # CMTA融合模型
+│   │   ├── cmta_utils.py        # CMTA工具函数
+│   │   ├── knowledge_decomposition.py  # 知识分解
+│   │   ├── pib.py               # PIB信息瓶颈
+│   │   ├── fusion_utils.py      # 融合工具
 │   │   └── losses.py            # 损失函数
 │   ├── training/                # 训练模块
 │   │   ├── trainer.py           # 训练器
+│   │   ├── cmta_trainer.py      # CMTA训练器
 │   │   └── metrics.py           # 评估指标
 │   ├── feature_extraction/      # 特征提取模块
-│   │   ├── extractor.py         # 特征提取器
-│   │   └── feature_aligner.py   # 特征对齐
+│   │   └── extractor.py         # 特征提取器
+│   ├── sequence_fusion/         # 时序融合模块
+│   │   ├── sequence_engine.py   # 时序融合引擎
+│   │   ├── sequence_network.py  # 时序网络
+│   │   ├── sequence_main.py     # 主程序入口
+│   │   ├── datasets/            # 时序数据集
+│   │   ├── kmeans/              # GPU K-means实现
+│   │   └── utils/               # 时序工具函数
+│   ├── elm/                     # ELM极限学习机模块
+│   │   ├── pipeline.py          # ELM流水线
+│   │   ├── config.py            # ELM配置
+│   │   └── cli.py               # ELM命令行接口
 │   └── utils/                   # 工具函数
 │       ├── config.py            # 配置管理
 │       ├── logger.py            # 日志工具
+│       ├── metrics.py           # 通用指标计算
+│       ├── kmeans.py            # K-means聚类
+│       ├── plotting.py          # 绘图工具
 │       └── seed.py              # 随机种子
 ├── scripts/                     # 运行脚本
 │   ├── manage.py                # 统一管理脚本（推荐）
 │   ├── preprocess_data.py       # 数据预处理
 │   ├── train.py                 # 训练脚本
 │   ├── extract_features.py      # 特征提取脚本
+│   ├── train_cmta.py            # CMTA训练脚本
+│   ├── run_elm.py               # ELM运行脚本
 │   └── visualize_results.py     # 结果可视化
+├── elm/                         # ELM根模块
+│   ├── pipeline.py              # ELM特征聚合流水线
+│   ├── config.py                # ELM配置管理
+│   └── main.py                  # ELM主程序
 └── outputs/                     # 输出目录
     └── feature_extract/
         ├── checkpoints/         # 模型检查点
@@ -170,7 +231,86 @@ python scripts/manage.py extract \
 - `--device`: 提取设备
 - `--align`: 提取后对齐多模态特征
 
-（旧的逻辑回归融合脚本已移除，请使用 CMTA/sequence_fusion 模块完成多模态融合。）
+#### 4. CMTA多模态融合训练
+
+```bash
+# 使用默认CMTA配置训练
+python scripts/manage.py cmta \
+    --data_dir /path/to/data \
+    --modalities A P \
+    --model_size small \
+    --epochs 100 \
+    --batch_size 32 \
+    --learning_rate 0.001 \
+    --device cuda:0
+
+# 使用自定义配置
+python scripts/manage.py cmta \
+    --config config/best_hparams/cmta.yaml \
+    --data_dir /path/to/data \
+    --modalities A P \
+    --alpha 0.5 \
+    --beta 0.1 \
+    --resume outputs/cmta/checkpoints/best_model.pth
+```
+
+**CMTA核心参数**：
+- `--model_size`: 模型规模 (small, large)
+- `--alpha`: 队列损失权重 (默认0.5)
+- `--beta`: 辅助损失权重 (默认0.1)
+- `--feat_dim`: 特征维度 (默认1024)
+- `--num_cluster`: 聚类数量 (默认64)
+- `--bank_length`: 原型库长度 (默认16)
+
+#### 5. ELM特征聚合与优化
+
+```bash
+# 运行完整的ELM流水线
+python scripts/manage.py elm \
+    --data_type CT \
+    --output outputs/elm \
+    --n_trials 100 \
+    --auc_floor 0.7 \
+    --max_gap 0.2
+
+# 使用自定义ELM配置
+python scripts/manage.py elm \
+    --data_type BL \
+    --elm_config config/elm_config.json \
+    --hidden_min 50 \
+    --hidden_max 500 \
+    --random_state 42
+```
+
+**ELM核心参数**：
+- `--data_type`: 数据类型标识 (CT, BL等)
+- `--n_trials`: Optuna优化试验次数
+- `--hidden_min/max`: 隐藏层节点数范围
+- `--auc_floor`: 最小AUC阈值
+- `--alpha_train/test`: U-test p值阈值
+
+#### 6. 时序融合（可选）
+
+```bash
+# 运行时序多模态融合
+python src/sequence_fusion/sequence_main.py \
+    --config config/sequence_fusion.yaml \
+    --modalities A P \
+    --epochs 50 \
+    --device cuda:0
+```
+
+#### 7. 结果可视化
+
+```bash
+# 绘制训练曲线
+python scripts/manage.py visualize \
+    --history_csv outputs/feature_extract/logs/exp_name/training_history.csv \
+    --output_dir outputs/feature_extract/visualizations
+
+# TensorBoard实时监控
+tensorboard --logdir outputs/feature_extract/logs
+```
 
 ### 方式二：使用独立脚本
 
@@ -291,6 +431,115 @@ tensorboard --logdir outputs/feature_extract/logs
 ```
 
 在浏览器中打开 `http://localhost:6006`
+
+## CMTA与ELM详解
+
+### CMTA (Cross-Modal Transformer with Alignment)
+
+#### 核心思想
+CMTA是一种跨模态Transformer融合模型，通过知识分解和原型学习实现多模态医学图像的智能融合。
+
+#### 技术架构
+1. **知识分解模块** (`src/models/knowledge_decomposition.py`)
+   - 将单模态特征分解为模态共享知识和模态特有知识
+   - 支持跨模态知识的重组与重构
+
+2. **原型学习机制** (`src/models/cmta_utils.py`)
+   - 维护可学习的原型库 (Prototype Bank)
+   - 支持动态原型更新和检索
+   - 实现知识的长期记忆与泛化
+
+3. **多损失函数优化**
+   - **队列损失 (Cohort Loss)**: `alpha`权重，增强同类样本聚集
+   - **辅助损失 (Auxiliary Loss)**: `beta`权重，促进知识分解
+   - **分类损失**: 标准交叉熵损失
+
+#### 关键参数
+```yaml
+model:
+  cmta:
+    feat_dim: 1024        # 特征维度
+    num_cluster: 64       # 原型聚类数量
+    bank_length: 16       # 原型库长度
+    update_ratio: 0.1     # 原型更新率
+    model_size: small     # 模型规模 (small/large)
+
+training:
+  cmta:
+    alpha: 0.5            # 队列损失权重
+    beta: 0.1             # 辅助损失权重
+    seed: 1               # 随机种子
+    update_rat: 0.1       # 知识记忆更新率
+```
+
+#### 使用场景
+- 多模态医学图像融合诊断
+- 跨模态知识迁移学习
+- 小样本多模态分类任务
+
+### ELM (Extreme Learning Machine)
+
+#### 核心思想
+ELM极限学习机结合U-test特征选择，实现高效的多模态特征聚合与优化。
+
+#### 技术流程
+1. **特征聚合** (`elm/pipeline.py`)
+   - 多模态特征的均值池化和拼接
+   - 支持不同模态特征维度的自动对齐
+
+2. **U-test特征选择**
+   - 基于Mann-Whitney U检验的特征重要性评估
+   - 自动筛选统计显著性高的特征
+   - 可配置p值阈值 (`alpha_train`, `alpha_test`)
+
+3. **超参数优化**
+   - 使用Optuna进行自动超参数搜索
+   - 优化隐藏层节点数、正则化参数等
+   - 支持多目标优化 (AUC最大化、过拟合控制)
+
+#### 配置文件
+```json
+{
+  "data_types": ["CT", "BL"],
+  "feature_dirs": {
+    "train": "data/features/train",
+    "val": "data/features/val",
+    "test": "data/features/test"
+  },
+  "elm_params": {
+    "hidden_min": 50,
+    "hidden_max": 1000,
+    "activation": "relu",
+    "alpha": 1.0
+  },
+  "selection": {
+    "alpha_train": 0.05,
+    "alpha_test": 0.05
+  },
+  "optimization": {
+    "n_trials": 100,
+    "auc_floor": 0.7,
+    "max_gap": 0.2
+  }
+}
+```
+
+#### 使用场景
+- 快速特征聚合与基线模型建立
+- 大规模特征集合的高效筛选
+- 多模态特征的统计显著性分析
+
+### 时序融合 (Sequence Fusion)
+
+#### 核心功能
+- 支持时序多模态数据的融合分析
+- GPU加速的K-means聚类算法
+- 动态时间规整 (DTW) 距离计算
+
+#### 技术特点
+- 高效的GPU并行计算
+- 支持长时间序列的批处理
+- 集成多种时序相似性度量
 
 ## 配置说明
 
@@ -512,10 +761,10 @@ python scripts/train.py --config config/best_hparams/resnet18_A.yaml --modality 
 
 ## 典型工作流程
 
-### 完整流程示例
+### 基础流程：单模态训练与特征提取
 
 ```bash
-# 1. 数据预处理（带详细参数）
+# 1. 数据预处理
 python scripts/manage.py preprocess \
     --config config/default_config.yaml \
     --root_dir /path/to/medical/data \
@@ -523,7 +772,7 @@ python scripts/manage.py preprocess \
     --train_ratio 0.7 \
     --seed 42
 
-# 2. 训练A模态（ResNet18，自定义参数）
+# 2. 训练A模态（ResNet18）
 python scripts/manage.py train \
     --modality A \
     --model resnet18 \
@@ -534,13 +783,13 @@ python scripts/manage.py train \
     --loss_type focal \
     --device cuda:0
 
-# 3. 训练P模态（ResNet50，使用默认配置）
+# 3. 训练P模态（ResNet50）
 python scripts/manage.py train \
     --modality P \
     --model resnet50 \
     --config config/default_config.yaml
 
-# 4. 提取A模态特征（带对齐）
+# 4. 特征提取与对齐
 python scripts/manage.py extract \
     --modality A \
     --model resnet18 \
@@ -550,48 +799,110 @@ python scripts/manage.py extract \
     --device cuda:0 \
     --align
 
-# 5. 提取P模态特征
 python scripts/manage.py extract \
     --modality P \
     --model resnet50 \
     --checkpoint outputs/feature_extract/checkpoints/best_model.pth \
     --output_dir data/features
+```
 
-# 6. 融合多模态特征（L2正则化分类器）
-python scripts/manage.py fuse \
+### 高级流程：CMTA多模态融合
+
+```bash
+# 1-2. 基础训练与特征提取（同上）
+
+# 3. CMTA多模态融合训练
+python scripts/manage.py cmta \
+    --data_dir /path/to/data \
     --modalities A P \
-    --feature_dir data/features \
-    --output_dir outputs/feature_extract/fusion \
-    --use_aligned \
-    --C 1.0 \
-    --max_iter 1000 \
-    --random_state 42
+    --model_size small \
+    --epochs 100 \
+    --batch_size 32 \
+    --learning_rate 0.001 \
+    --alpha 0.5 \
+    --beta 0.1 \
+    --device cuda:0
 
-# 7. 查看训练结果
-tensorboard --logdir outputs/feature_extract/logs
+# 4. CMTA模型评估与结果分析
+python scripts/manage.py visualize \
+    --history_csv outputs/cmta/logs/training_history.csv \
+    --output_dir outputs/cmta/visualizations
+```
+
+### 完整流程：ELM特征聚合优化
+
+```bash
+# 1-2. 基础训练与特征提取（同上）
+
+# 3. ELM特征聚合与超参数优化
+python scripts/manage.py elm \
+    --data_type CT \
+    --output outputs/elm \
+    --n_trials 100 \
+    --auc_floor 0.7 \
+    --alpha_train 0.05 \
+    --alpha_test 0.05
+
+# 4. 最优ELM模型评估
+# 结果自动保存在 outputs/elm/final_results.mat
+```
+
+### 研究流程：全算法对比
+
+```bash
+# 1. 数据预处理和基础训练（统一）
+python scripts/manage.py preprocess --config config/default_config.yaml ...
+python scripts/manage.py train --modality A --model resnet18 ...
+python scripts/manage.py train --modality P --model resnet50 ...
+python scripts/manage.py extract --modality A --align
+python scripts/manage.py extract --modality P
+
+# 2. CMTA融合
+python scripts/manage.py cmta --model_size small --epochs 100
+
+# 3. ELM聚合
+python scripts/manage.py elm --data_type CT --n_trials 200
+
+# 4. 时序融合（可选）
+python src/sequence_fusion/sequence_main.py --epochs 50
+
+# 5. 结果对比与可视化
+python scripts/manage.py visualize --history_csv outputs/*/training_history.csv
+tensorboard --logdir outputs/
 ```
 
 ## 下一步
 
 完成特征提取后，可以：
 
-1. 使用提取的特征训练多模态融合模型
-2. 使用L2正则化的concat策略融合A和P模态
-3. 进行进一步的分类或预测任务
-4. 使用提取的特征进行可视化分析（t-SNE、UMAP等）
+1. **CMTA多模态融合**：使用跨模态Transformer进行端到端融合训练
+2. **ELM特征聚合**：通过极限学习机实现高效特征聚合与优化
+3. **Sequence时序分析**：利用时序融合模型处理动态多模态数据
+4. **算法对比研究**：综合评估不同融合策略的性能表现
+5. **可视化分析**：使用t-SNE、UMAP等工具进行特征降维可视化
+6. **临床部署**：将优化后的模型集成到临床诊断系统中
 
 ## 技术特性
 
+### 基础能力
 - ✅ 支持多种预训练模型（ResNet系列、Swin Transformer）
-- ✅ 灵活的损失函数选择（CE、Focal、Asymmetric）
+- ✅ 灵活的损失函数选择（CE、Focal、Asymmetric、Cohort）
 - ✅ 完整的实验管理和日志记录
 - ✅ 自动保存最佳模型和超参数
-- ✅ 支持断点续训
-- ✅ 早停机制防止过拟合
+- ✅ 支持断点续训和早停机制
 - ✅ 病人级特征提取和对齐
 - ✅ 数据泄漏防护（病人级划分）
 - ✅ 随机种子控制保证可复现
 - ✅ TensorBoard可视化支持
+
+### 高级功能
+- 🚀 **CMTA融合**：跨模态Transformer与知识分解
+- 🚀 **ELM优化**：极限学习机+U-test特征选择
+- 🚀 **Sequence Fusion**：时序多模态数据融合
+- 🚀 **原型学习**：可学习原型库与知识记忆
+- 🚀 **GPU加速**：高性能并行计算支持
+- 🚀 **自动调参**：Optuna超参数优化
+- 🚀 **统计分析**：严格的统计显著性检验
 
 ## 许可证
 
