@@ -99,17 +99,55 @@ feature_extract/
 
 ```bash
 python scripts/manage.py preprocess \
-    --config config/default_config.yaml
+    --config config/default_config.yaml \
+    --root_dir /path/to/data \
+    --modalities A P \
+    --output_dir data/splits \
+    --train_ratio 0.7 \
+    --seed 42
 ```
+
+**参数说明**：
+- `--root_dir`: 数据根目录（覆盖配置文件）
+- `--modalities`: 模态列表（如 A P）
+- `--output_dir`: 划分文件输出目录
+- `--train_ratio`: JM医院训练集比例（默认0.7）
+- `--seed`: 随机种子确保可复现
+- `--log_dir`: 预处理日志目录
 
 #### 2. 训练模型
 
 ```bash
+# 训练A模态（ResNet18）
 python scripts/manage.py train \
     --modality A \
     --model resnet18 \
-    --config config/default_config.yaml
+    --config config/default_config.yaml \
+    --epochs 100 \
+    --batch_size 32 \
+    --learning_rate 0.001 \
+    --loss_type focal \
+    --device cuda:0
+
+# 训练P模态（ResNet50）
+python scripts/manage.py train \
+    --modality P \
+    --model resnet50 \
+    --config config/default_config.yaml \
+    --disable_early_stop \
+    --resume
 ```
+
+**参数说明**：
+- `--modality`: 模态名称（A 或 P，必需）
+- `--model`: 模型名称（覆盖配置文件）
+- `--epochs`: 训练轮数
+- `--batch_size`: 批大小
+- `--learning_rate`: 学习率
+- `--loss_type`: 损失函数（ce, focal, asymmetric）
+- `--device`: 训练设备（cuda:0, cpu等）
+- `--disable_early_stop`: 关闭早停
+- `--resume`: 从检查点恢复训练
 
 #### 3. 特征提取
 
@@ -117,15 +155,43 @@ python scripts/manage.py train \
 python scripts/manage.py extract \
     --modality A \
     --model resnet18 \
-    --checkpoint "path/to/checkpoint.pth"
+    --checkpoint outputs/feature_extract/checkpoints/best_model.pth \
+    --output_dir data/features \
+    --batch_size 64 \
+    --device cuda:0 \
+    --align
 ```
+
+**参数说明**：
+- `--modality`: 要提取的模态（A 或 P，必需）
+- `--model`: 特征提取器模型名称
+- `--checkpoint`: 模型检查点路径（默认best_model.pth）
+- `--output_dir`: 特征输出目录
+- `--batch_size`: 提取批大小
+- `--device`: 提取设备
+- `--align`: 提取后对齐多模态特征
 
 #### 4. 特征融合
 
 ```bash
 python scripts/manage.py fuse \
-    --modalities A P
+    --modalities A P \
+    --feature_dir data/features \
+    --output_dir outputs/feature_extract/fusion \
+    --use_aligned \
+    --C 1.0 \
+    --max_iter 1000 \
+    --random_state 42
 ```
+
+**参数说明**：
+- `--feature_dir`: 特征文件目录
+- `--modalities`: 要融合的模态列表
+- `--use_aligned`: 使用对齐后的特征CSV
+- `--C`: L2正则化强度的倒数
+- `--max_iter`: 逻辑回归最大迭代次数
+- `--random_state`: 随机种子
+- `--output_dir`: 融合结果输出目录
 
 ### 方式二：使用独立脚本
 
@@ -470,25 +536,57 @@ python scripts/train.py --config config/best_hparams/resnet18_A.yaml --modality 
 ### 完整流程示例
 
 ```bash
-# 1. 数据预处理
-python scripts/manage.py preprocess
+# 1. 数据预处理（带详细参数）
+python scripts/manage.py preprocess \
+    --config config/default_config.yaml \
+    --root_dir /path/to/medical/data \
+    --modalities A P \
+    --train_ratio 0.7 \
+    --seed 42
 
-# 2. 训练A模态
-python scripts/manage.py train --modality A --model resnet18
+# 2. 训练A模态（ResNet18，自定义参数）
+python scripts/manage.py train \
+    --modality A \
+    --model resnet18 \
+    --config config/default_config.yaml \
+    --epochs 100 \
+    --batch_size 32 \
+    --learning_rate 0.001 \
+    --loss_type focal \
+    --device cuda:0
 
-# 3. 训练P模态
-python scripts/manage.py train --modality P --model resnet50
+# 3. 训练P模态（ResNet50，使用默认配置）
+python scripts/manage.py train \
+    --modality P \
+    --model resnet50 \
+    --config config/default_config.yaml
 
-# 4. 提取A模态特征
-python scripts/manage.py extract --modality A --model resnet18 \
-    --checkpoint outputs/feature_extract/checkpoints/best_model.pth
+# 4. 提取A模态特征（带对齐）
+python scripts/manage.py extract \
+    --modality A \
+    --model resnet18 \
+    --checkpoint outputs/feature_extract/checkpoints/best_model.pth \
+    --output_dir data/features \
+    --batch_size 64 \
+    --device cuda:0 \
+    --align
 
 # 5. 提取P模态特征
-python scripts/manage.py extract --modality P --model resnet50 \
-    --checkpoint outputs/feature_extract/checkpoints/best_model.pth
+python scripts/manage.py extract \
+    --modality P \
+    --model resnet50 \
+    --checkpoint outputs/feature_extract/checkpoints/best_model.pth \
+    --output_dir data/features
 
-# 6. 融合多模态特征
-python scripts/manage.py fuse --modalities A P
+# 6. 融合多模态特征（L2正则化分类器）
+python scripts/manage.py fuse \
+    --modalities A P \
+    --feature_dir data/features \
+    --output_dir outputs/feature_extract/fusion \
+    --use_aligned \
+    --C 1.0 \
+    --max_iter 1000 \
+    --random_state 42
 
 # 7. 查看训练结果
 tensorboard --logdir outputs/feature_extract/logs

@@ -39,21 +39,21 @@ class Trainer:
         log_interval: int = 10
     ):
         """
-        ??????
-        
+        初始化训练器  # 编码修复：将乱码恢复为中文注释
+
         Args:
-            model: ??
-            train_loader: ???????
-            val_loader: ???????
-            criterion: ????
-            optimizer: ???
-            scheduler: ??????
-            device: ??
-            output_dir: ????
-            experiment_name: ????
-            early_stop_patience: ?????
-            early_stop_enabled: ??????
-            log_interval: ??????
+            model: 模型  # 编码修复：将乱码恢复为中文注释
+            train_loader: 训练数据加载器  # 编码修复：将乱码恢复为中文注释
+            val_loader: 验证数据加载器  # 编码修复：将乱码恢复为中文注释
+            criterion: 损失函数  # 编码修复：将乱码恢复为中文注释
+            optimizer: 优化器  # 编码修复：将乱码恢复为中文注释
+            scheduler: 学习率调度器  # 编码修复：将乱码恢复为中文注释
+            device: 设备  # 编码修复：将乱码恢复为中文注释
+            output_dir: 输出目录  # 编码修复：将乱码恢复为中文注释
+            experiment_name: 实验名称  # 编码修复：将乱码恢复为中文注释
+            early_stop_patience: 早停耐心值  # 编码修复：将乱码恢复为中文注释
+            early_stop_enabled: 是否启用早停  # 编码修复：将乱码恢复为中文注释
+            log_interval: 日志间隔  # 编码修复：将乱码恢复为中文注释
         """
         self.model = model.to(device)
         self.train_loader = train_loader

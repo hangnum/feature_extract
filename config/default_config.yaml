@@ -1,7 +1,7 @@
 # 多模态医疗图像特征提取项目 - 默认配置
 
 data:
-  root_dir: "D:\\data\\raw\\Grade"
+  root_dir: "/home/wwt/data/raw/liver/Grade"
   modalities:
     - A
     - P
