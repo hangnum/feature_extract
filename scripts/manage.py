@@ -128,26 +128,159 @@ def handle_extract(args, config: Config, logger) -> None:
 
 
 def handle_fuse(args, config: Config, logger) -> None:
+    logger.warning("Old fusion pipeline has been removed; please use CMTA-based fusion instead.")
+
+
+def handle_cmta(args, config: Config, logger) -> None:
+    """处理CMTA训练"""
+    # 加载CMTA特定配置
+    cmta_config_path = args.config or str(project_root / 'config' / 'best_hparams' / 'cmta.yaml')
+    cmta_config = load_config(Path(cmta_config_path))
+
     cmd = [
         sys.executable,
-        str(project_root / 'scripts' / 'fuse_features.py'),
+        str(project_root / 'scripts' / 'train_cmta.py'),
+        '--config', cmta_config_path
     ]
 
-    feature_dir = args.feature_dir or str(project_root / 'data' / 'features')
-    output_dir = args.output_dir or str(project_root / 'outputs' / 'feature_extract' / 'fusion')
-    cmd += ['--feature_dir', feature_dir, '--output_dir', output_dir]
+    # 数据目录
+    data_dir = args.data_dir or config.data.root_dir
+    cmd += ['--data_dir', data_dir]
 
-    modalities = args.modalities or config.data.modalities
+    # 模态配置
+    modalities = args.modalities or cmta_config.data.modalities
     if modalities:
         cmd += ['--modalities'] + modalities
-    if args.use_aligned:
-        cmd.append('--use_aligned')
-    if args.C is not None:
-        cmd += ['--C', str(args.C)]
-    if args.max_iter is not None:
-        cmd += ['--max_iter', str(args.max_iter)]
+
+    # 模型配置
+    if args.model_size:
+        cmd += ['--model_size', args.model_size]
+    elif hasattr(cmta_config.model.cmta, 'model_size'):
+        cmd += ['--model_size', cmta_config.model.cmta.model_size]
+
+    # 训练参数
+    if args.batch_size is not None:
+        cmd += ['--batch_size', str(args.batch_size)]
+    elif hasattr(cmta_config.training, 'batch_size'):
+        cmd += ['--batch_size', str(cmta_config.training.batch_size)]
+
+    if args.epochs is not None:
+        cmd += ['--epochs', str(args.epochs)]
+    elif hasattr(cmta_config.training, 'epochs'):
+        cmd += ['--epochs', str(cmta_config.training.epochs)]
+
+    if args.learning_rate is not None:
+        cmd += ['--learning_rate', str(args.learning_rate)]
+    elif hasattr(cmta_config.training, 'learning_rate'):
+        cmd += ['--learning_rate', str(cmta_config.training.learning_rate)]
+
+    if args.alpha is not None:
+        cmd += ['--alpha', str(args.alpha)]
+    elif hasattr(cmta_config.training.cmta, 'alpha'):
+        cmd += ['--alpha', str(cmta_config.training.cmta.alpha)]
+
+    if args.beta is not None:
+        cmd += ['--beta', str(args.beta)]
+    elif hasattr(cmta_config.training.cmta, 'beta'):
+        cmd += ['--beta', str(cmta_config.training.cmta.beta)]
+
+    # 其他参数
+    if args.seed is not None:
+        cmd += ['--seed', str(args.seed)]
+    elif hasattr(cmta_config.experiment, 'seed'):
+        cmd += ['--seed', str(cmta_config.experiment.seed)]
+
+    device = args.device or cmta_config.training.device
+    cmd += ['--device', device]
+
+    if args.resume:
+        cmd += ['--resume', args.resume]
+
+    # 输出目录
+    output_dir = getattr(cmta_config.experiment, 'output_dir', './outputs/cmta')
+    cmd += ['--output_dir', output_dir]
+
+    run_subprocess(cmd, logger)
+
+
+def handle_elm(args, logger) -> None:
+    """运行 ELM 流水线"""
+    cmd = [
+        sys.executable,
+        str(project_root / 'scripts' / 'run_elm.py'),
+        '--data-type', args.data_type
+    ]
+
+    if args.elm_config:
+        cmd += ['--config', args.elm_config]
+    else:
+        cmd += ['--config', str(project_root / 'config' / 'elm_config.json')]
+
+    if args.output is not None:
+        cmd += ['--output', args.output]
+    if args.n_trials is not None:
+        cmd += ['--n-trials', str(args.n_trials)]
+    if args.hidden_min is not None:
+        cmd += ['--hidden-min', str(args.hidden_min)]
+    if args.hidden_max is not None:
+        cmd += ['--hidden-max', str(args.hidden_max)]
+    if args.auc_floor is not None:
+        cmd += ['--auc-floor', str(args.auc_floor)]
+    if args.max_gap is not None:
+        cmd += ['--max-gap', str(args.max_gap)]
     if args.random_state is not None:
-        cmd += ['--random_state', str(args.random_state)]
+        cmd += ['--random-state', str(args.random_state)]
+    if args.alpha_train is not None:
+        cmd += ['--alpha-train', str(args.alpha_train)]
+    if args.alpha_test is not None:
+        cmd += ['--alpha-test', str(args.alpha_test)]
+
+    run_subprocess(cmd, logger)
+
+
+def handle_visualize(args, logger) -> None:
+    """绘制训练曲线与指标"""
+    cmd = [
+        sys.executable,
+        str(project_root / 'scripts' / 'visualize_results.py'),
+        '--history_csv', args.history_csv
+    ]
+    if args.output_dir is not None:
+        cmd += ['--output_dir', args.output_dir]
+    run_subprocess(cmd, logger)
+
+
+def handle_elm(args, logger) -> None:
+    """运行 ELM 流水线"""
+    cmd = [
+        sys.executable,
+        str(project_root / 'scripts' / 'run_elm.py'),
+        '--data-type', args.data_type
+    ]
+
+    if args.elm_config:
+        cmd += ['--config', args.elm_config]
+    else:
+        cmd += ['--config', str(project_root / 'config' / 'elm_config.json')]
+
+    if args.output is not None:
+        cmd += ['--output', args.output]
+    if args.n_trials is not None:
+        cmd += ['--n-trials', str(args.n_trials)]
+    if args.hidden_min is not None:
+        cmd += ['--hidden-min', str(args.hidden_min)]
+    if args.hidden_max is not None:
+        cmd += ['--hidden-max', str(args.hidden_max)]
+    if args.auc_floor is not None:
+        cmd += ['--auc-floor', str(args.auc_floor)]
+    if args.max_gap is not None:
+        cmd += ['--max-gap', str(args.max_gap)]
+    if args.random_state is not None:
+        cmd += ['--random-state', str(args.random_state)]
+    if args.alpha_train is not None:
+        cmd += ['--alpha-train', str(args.alpha_train)]
+    if args.alpha_test is not None:
+        cmd += ['--alpha-test', str(args.alpha_test)]
 
     run_subprocess(cmd, logger)
 
@@ -203,6 +336,40 @@ def main():
     fuse_parser.add_argument('--random_state', type=int, default=None, help='Random seed')
     fuse_parser.add_argument('--output_dir', type=str, default=None, help='Output directory for fusion outputs')
 
+    # cmta
+    cmta_parser = subparsers.add_parser('cmta', help='Train CMTA multimodal fusion model')
+    cmta_parser.add_argument('--data_dir', type=str, default=None, help='CMTA data directory')
+    cmta_parser.add_argument('--modalities', nargs='+', default=None, help='Modalities to use')
+    cmta_parser.add_argument('--model_size', type=str, default=None, choices=['small', 'large'], help='Model size')
+    cmta_parser.add_argument('--batch_size', type=int, default=None, help='Batch size')
+    cmta_parser.add_argument('--epochs', type=int, default=None, help='Training epochs')
+    cmta_parser.add_argument('--learning_rate', type=float, default=None, help='Learning rate')
+    cmta_parser.add_argument('--alpha', type=float, default=None, help='Cohort loss weight')
+    cmta_parser.add_argument('--beta', type=float, default=None, help='Auxiliary loss weight')
+    cmta_parser.add_argument('--seed', type=int, default=None, help='Random seed')
+    cmta_parser.add_argument('--device', type=str, default=None, help='Training device')
+    cmta_parser.add_argument('--resume', type=str, default=None, help='Resume from checkpoint')
+    cmta_parser.add_argument('--config', type=str, default=None, help='CMTA specific config file')
+
+    # elm
+    elm_parser = subparsers.add_parser('elm', help='Run ELM feature aggregation + U-test + ELM search')
+    elm_parser.add_argument('--data_type', type=str, required=True, help='Data type key in elm config (e.g., CT/BL)')
+    elm_parser.add_argument('--elm_config', type=str, default=None, help='Path to elm JSON config')
+    elm_parser.add_argument('--output', type=str, default=None, help='Directory to save .mat outputs')
+    elm_parser.add_argument('--n_trials', type=int, default=None, help='Override ELM search trials')
+    elm_parser.add_argument('--hidden_min', type=int, default=None, help='Override hidden nodes lower bound')
+    elm_parser.add_argument('--hidden_max', type=int, default=None, help='Override hidden nodes upper bound')
+    elm_parser.add_argument('--auc_floor', type=float, default=None, help='Minimum AUC threshold')
+    elm_parser.add_argument('--max_gap', type=float, default=None, help='Max AUC gap between splits')
+    elm_parser.add_argument('--random_state', type=int, default=None, help='Random seed for ELM search')
+    elm_parser.add_argument('--alpha_train', type=float, default=None, help='U-test p-value threshold on train')
+    elm_parser.add_argument('--alpha_test', type=float, default=None, help='U-test p-value threshold on test')
+
+    # visualize
+    viz_parser = subparsers.add_parser('visualize', help='Plot training metrics from CSV history')
+    viz_parser.add_argument('--history_csv', type=str, required=True, help='Path to training history CSV')
+    viz_parser.add_argument('--output_dir', type=str, default=None, help='Output directory for plots')
+
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -223,6 +390,12 @@ def main():
         handle_extract(args, config, logger)
     elif args.command == 'fuse':
         handle_fuse(args, config, logger)
+    elif args.command == 'cmta':
+        handle_cmta(args, config, logger)
+    elif args.command == 'elm':
+        handle_elm(args, logger)
+    elif args.command == 'visualize':
+        handle_visualize(args, logger)
 
 
 if __name__ == '__main__':
