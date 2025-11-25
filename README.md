@@ -80,7 +80,6 @@ feature_extract/
 │   ├── preprocess_data.py       # 数据预处理
 │   ├── train.py                 # 训练脚本
 │   ├── extract_features.py      # 特征提取脚本
-│   ├── fuse_features.py         # 特征融合脚本
 │   └── visualize_results.py     # 结果可视化
 └── outputs/                     # 输出目录
     └── feature_extract/
@@ -171,27 +170,7 @@ python scripts/manage.py extract \
 - `--device`: 提取设备
 - `--align`: 提取后对齐多模态特征
 
-#### 4. 特征融合
-
-```bash
-python scripts/manage.py fuse \
-    --modalities A P \
-    --feature_dir data/features \
-    --output_dir outputs/feature_extract/fusion \
-    --use_aligned \
-    --C 1.0 \
-    --max_iter 1000 \
-    --random_state 42
-```
-
-**参数说明**：
-- `--feature_dir`: 特征文件目录
-- `--modalities`: 要融合的模态列表
-- `--use_aligned`: 使用对齐后的特征CSV
-- `--C`: L2正则化强度的倒数
-- `--max_iter`: 逻辑回归最大迭代次数
-- `--random_state`: 随机种子
-- `--output_dir`: 融合结果输出目录
+（旧的逻辑回归融合脚本已移除，请使用 CMTA/sequence_fusion 模块完成多模态融合。）
 
 ### 方式二：使用独立脚本
 
