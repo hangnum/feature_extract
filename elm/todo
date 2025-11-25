@@ -1,0 +1,742 @@
+```python
+import os
+import scipy.io as sio
+import numpy as np
+
+"""
+CMTA将每张图片有3904个特征，平均到每个人有3904个特征
+"""
+data_dict = {}
+data_types = ["CT", "BL"]
+for data_type in data_types:
+
+    feature_file_path = f'/home/yxyxlab_public/xjh/data/txt_vgg16/jiangmen_{data_type}_CMTA/VGG16/feature_extract_3_1'
+
+    dataset_list = os.listdir(feature_file_path)
+
+    cls_path =f'/home/yxyxlab_public/xjh/data/txt_vgg16/jiangmen_{data_type}_CMTA'
+
+    cls_list = ([f'train_{data_type}_log.txt', f'test_{data_type}_log.txt', f'test1_{data_type}_log.txt'],
+                ['train_data', 'test_data', 'test1_data'],
+                ['Ytrain', 'Ytest', 'Ytest1'],
+                ['Xtrain', 'Xtest', 'Xtest1'],
+                )
+
+    train_data = {}
+    test_data = {}
+    test1_data = {}
+    for m,(cls1,cls2,cls3,cls4) in enumerate(zip(*cls_list)):
+        txt_path = os.path.join(cls_path,cls1)
+        for i,dataset in enumerate(dataset_list):
+            if cls2 == dataset:
+                pre_list = []
+                label_list = []
+                with open(txt_path, encoding='UTF-8') as f:
+                    for line in f:
+                        # 再次分割以提取出你需要的部分
+                        num = line.split('/')[-2]
+                        dataset_path = os.path.join(feature_file_path, dataset)
+                        method_list = os.listdir(dataset_path)
+                        for j,method in enumerate(method_list):
+                            method_path = os.path.join(dataset_path,method)
+                            patient_list = os.listdir(method_path)
+                            for n,patient in enumerate(patient_list):
+                                patient_path = os.path.join(method_path,patient)
+                                if num == patient:
+                                    data_path = os.path.join(patient_path,patient+'.mat')
+                                    mat_data = sio.loadmat(data_path)['feature_map']
+                                    column_sums = np.sum(mat_data, axis=0)
+                                    # 计算每列的和
+                                    column_sums = np.sum(mat_data, axis=0)
+
+                                    # 计算行数
+                                    num_rows = mat_data.shape[0]
+
+                                    # 对每列的和除以行数，得到每列的平均值
+                                    column_means = column_sums / num_rows   
+                                    # 准备要保存的数据，使用字典的形式
+                                    new_pre = column_means
+                                    pre_list.append(new_pre)
+                                    new_label = method
+                                    label_list.append(new_label)
+                    if cls3 == 'Ytrain':
+                        train_data = {
+                                cls3 : np.asarray(label_list).T,
+                                cls4 : pre_list  # 保存每列的平均值
+                                }
+                    elif cls3 == 'Ytest':
+                        test_data = {
+                                cls3 : np.asarray(label_list).T,
+                                cls4 : pre_list  # 保存每列的平均值
+                                }
+                    else:
+                        test1_data = {
+                                cls3 : np.asarray(label_list).T,
+                                cls4 : pre_list  # 保存每列的平均值
+                                }
+
+    # 合并新数据和原数据
+    merged_data = {
+                **train_data, 
+                **test_data, 
+                **test1_data
+                }
+
+    sio.savemat(os.path.join(cls_path,f'feature_{data_type}_map.mat'), merged_data)
+    print('保存在:', cls_path, '完成！')
+    
+print('保存完成!')
+
+                # print(mat_data.shape)
+```
+```matlab
+train = Xtrain; train_label = Ytrain; 
+test = Xtest; test_label = Ytest;
+test1 = Xtest1; test_label1 = Ytest1;
+
+[x,y] = size(train);
+[k,y1] = size(test);
+[p,y2] = size(test1);
+Xtrain = [];
+Xtest = [];
+Xtest1 = [];
+meanstd = [];
+
+for i = 1:y    %训练集归一化
+    tezheng = train(:,i)';
+    TEzheng = zscore(tezheng);
+    Xtrain(:,i) = TEzheng';
+    means = mean(tezheng);
+    stds = std(tezheng);
+    meanstd(1,i) = means;
+    meanstd(2,i) = stds;
+end
+
+for i = 1:y    %测试集归一化
+    for j = 1:k
+        tezheng = test(j,i);
+        TEzheng = (tezheng-meanstd(1,i))./ meanstd(2,i);
+        TEzheng(isinf(TEzheng)) = 1;
+        TEzheng(isnan(TEzheng)) = 0;
+        Xtest(j,i) = TEzheng;
+    end
+end
+
+for i = 1:y2    %测试集归一化
+    for j = 1:p
+        tezheng = test1(j,i);
+        TEzheng = (tezheng-meanstd(1,i))./ meanstd(2,i);
+        TEzheng(isinf(TEzheng)) = 1;
+        TEzheng(isnan(TEzheng)) = 0;
+        Xtest1(j,i) = TEzheng;
+    end
+end
+
+
+save('feature_normalized.mat','Xtrain','Ytrain','Xtest','Ytest','Xtest1','Ytest1');
+save('feature_Part1_VP_meanstd.mat','meanstd');
+
+```
+```matlab
+close all
+clear all
+clc
+% K = 1;  %K=1代表进行ICC检验，K等于0代表只进行Utest。  
+load('feature_normalized.mat');  %分好训练集与测试集之后的特征与相应的标签
+train = Xtrain; train_label = Ytrain; test = Xtest; test_label = Ytest;
+test1 = Xtest1; test_label0 = Ytest1;
+Xtrain = double(Xtrain); train_label = double(Ytrain)';
+test = double(Xtest); test_label = double(Ytest1)';
+test1 = double(Xtest1); test_label1 = double(Ytest1)';
+[x,y] = size(Xtest);
+
+%% Utest
+for i = 1:y
+    
+    utrain=Xtrain(:,i);
+    ind_train=find(train_label==0);
+    N_train=utrain(ind_train);
+    ind1_train=find(train_label==1);
+    P_train=utrain(ind1_train);
+    p_train=mwwtest(N_train',P_train');
+    trainp_data(i)=p_train;
+    
+    utest=Xtest(:,i);
+    ind_test=find(test_label==0);
+    N_test=utest(ind_test);
+    ind1_test=find(test_label==1);
+    P_test=utest(ind1_test);
+    p_test=mwwtest(N_test',P_test');
+    testp_data(i)=p_test;
+%     
+    utest1=Xtest1(:,i);
+    ind_test1=find(test_label1==0);
+    N_test1=utest1(ind_test1);
+    ind1_test1=find(test_label1==1);
+    P_test1=utest1(ind1_test1);
+    p_test1=mwwtest(N_test1',P_test1');
+    testp_data1(i)=p_test1;
+end
+cof = 0;
+index_utest =[];
+for i =1:y
+    A = trainp_data(1,i); B = testp_data(1,i); 
+    C = testp_data1(1,i);
+    if A<0.05 && B<0.05
+        cof = cof+1;
+        index_utest(1,cof) = i;
+    end
+end
+save('Utest_result_3.25.mat','trainp_data','testp_data', 'testp_data1','index_utest'); %保存Utest结果
+%save('Utest_result_3.25.mat','trainp_data','testp_data', 'index_utest'); %保存Utest结果
+
+Xtest = [];
+Xtest1 = [];
+Xtrain = [];
+[x,y] = size(index_utest);
+for j = 1:y
+    A = index_utest(1,j);
+    Xtrain(:,j) = train(:,A);
+    Xtest(:,j) = test(:,A);
+    Xtest1(:,j) = test1(:,A);
+end
+
+Ytest = double(Ytest');
+Ytest1 = double(Ytest1');
+Ytrain = double(Ytrain');
+
+save('feature_Utest_Part1_VP.mat','Xtrain','Ytrain','Xtest','Ytest','Xtest1','Ytest1');  % 保留Utest后的特征结果
+%save('feature_Utest_3.18.mat','Xtrain','Ytrain','Xtest','Ytest'); % 保留Utest后的特征结果
+
+
+```
+```matlab
+clc
+clear all
+close all
+
+%%   %读取数据
+load('MRMRfeature_3_25.mat');
+F_Xtrain = Xtrain';
+T_Ytrain = Ytrain';
+F_Xtest  = Xtest';
+T_Ytest  = Ytest';
+
+F_Xtest1  = Xtest1';
+T_Ytest1  = Ytest1';
+
+[x,y]    = size(F_Xtrain);
+
+%训练集归一化
+X_train = zscore(F_Xtrain');
+X_train = X_train';
+MEAN    = mean(F_Xtrain');
+STD     = std(F_Xtrain');
+% 
+AUC_test00 = 0.70;
+while(1)
+for k =1:100    
+    G = randi([2 5],1,1);
+    [IW,B,B0,LW,TF,TYPE] = elmtrain(X_train,T_Ytrain,G,'sig',0,0);
+    
+    for i = 1:x
+        X_test(i,:)   = (F_Xtest(i,:)-MEAN(1,i))./STD(1,i);
+        X_test1(i,:)   = (F_Xtest1(i,:)-MEAN(1,i))./STD(1,i);
+    end
+    X_test  = F_Xtest;
+    X_test1 = F_Xtest1;
+    
+    %ELM仿真测试
+%     IW=Model.IW;     B=Model.B;          B0=Model.B0;
+%     TF=Model.TF;     TYPE=Model.TYPE;    LW=Model.LW;
+    Tn_train = elmpredict(X_train,IW,B,B0,LW,TF,TYPE,0);
+    Tn_test  = elmpredict(X_test,IW,B,B0,LW,TF,TYPE,0);
+    Tn_test1  = elmpredict(X_test1,IW,B,B0,LW,TF,TYPE,0);
+
+    
+    %学习器的输出结果
+    model.IW = IW;     model.B = B;          model.B0 = B0;
+    model.TF = TF;     model.TYPE = TYPE;    model.LW = LW;
+    
+    [CUT_train,AUC_train]   = YouDen(Tn_train,T_Ytrain);
+    [CUT_test,AUC_test]     = YouDen(Tn_test,T_Ytest);
+    [CUT_test1,AUC_test1]     = YouDen(Tn_test1,T_Ytest1);
+
+    
+    Ytrain = [T_Ytrain;Tn_train]';  Ytest  = [T_Ytest;Tn_test]';
+    Ytest1  = [T_Ytest1;Tn_test1]';
+  
+    Result.train = Ytrain;  Result.test  = Ytest; Result.test1  = Ytest1;
+
+    Model  = model;
+    AUC  = [CUT_train,CUT_test,CUT_test1;AUC_train,AUC_test,AUC_test1];
+    
+  fprintf('当前Train:%.2f,Test:%.2f,Test1:%.2f\n',AUC_train,AUC_test,AUC_test1)
+
+  pathmat = ['bayes_model_result_SUM_',num2str(AUC_train,2),'_',num2str(AUC_test,2),'_',num2str(AUC_test1,2),'.mat'];
+ 
+    if  AUC_test > AUC_test00  && AUC_train>=AUC_test  && AUC_test1>=AUC_test00 && (AUC_test - AUC_test1)<0.05 ...
+          && (AUC_train-AUC_test)<0.05 && (AUC_test - AUC_test1)<0.05 && (AUC_train - AUC_test1)<0.05  && AUC_train>0.80
+    %if  AUC_test > AUC_test00  && AUC_train>=AUC_test  && AUC_test1>AUC_test00
+        save(pathmat','Model','AUC','Ytrain','Ytest','Ytest1')
+        %AUC_test00 = AUC_test; 
+    end
+end
+end
+```
+
+分析完整工作流程，指出其中的问题。
+
+
+先给你把这几段代码的“流水线”梳理一下，然后逐段指出具体的问题和隐患。
+
+---
+
+## 一、整体流程梳理
+
+从你贴出来的代码看，大致的工作链条是：
+
+1. **Python 脚本**
+   从 `feature_map`（切片级特征）中把同一个病人所有切片在特征维度上做平均，得到“每人 3904 维”的特征；
+   根据 `train_*_log.txt / test_*_log.txt / test1_*_log.txt` 划分训练集、测试集、外部测试集；
+   保存为 `feature_{CT,BL}_map.mat`（含 `Xtrain/Xtest/Xtest1` 和 `Ytrain/Ytest/Ytest1`）。
+
+2. **MATLAB 脚本 1：特征归一化**
+   对 `Xtrain` 做 z-score 标准化，记录每个特征的均值/标准差；
+   用训练集的均值和标准差归一化 `Xtest` 和 `Xtest1`；
+   保存为 `feature_normalized.mat` 与 `feature_Part1_VP_meanstd.mat`。
+
+3. **MATLAB 脚本 2：U 检验做特征筛选**
+   载入 `feature_normalized.mat`；
+   针对 train/test/test1 三个集合，按标签 0/1 做 Mann–Whitney U 检验，得到每个特征的 p 值；
+   按一定阈值（这里是 train 和 test p<0.05）选出特征索引 `index_utest`；
+   根据索引从原始 `train/test/test1` 中抽取这些特征，保存为 `feature_Utest_Part1_VP.mat`。
+
+4. **MATLAB 脚本 3：MRMR+ELM 训练与模型筛选**
+   另外有一个 MRMR 步骤（没贴出来）在 `feature_Utest_Part1_VP.mat` 上再筛特征，得到 `MRMRfeature_3_25.mat`；
+   最后这个脚本加载 `MRMRfeature_3_25.mat`，再次标准化训练特征，随机选隐藏节点数训练 ELM，
+   反复随机训练 100×∞ 次，按 AUC 及 train/test/test1 三个集合的表现筛选并保存若干模型。
+
+下面按脚本逐段说问题。
+
+---
+
+## 二、Python 脚本（生成 feature_{data_type}_map.mat）
+
+### 1. 标签类型和后续 MATLAB 步骤不匹配（严重问题）
+
+```python
+new_label = method
+label_list.append(new_label)
+...
+train_data = {
+    cls3 : np.asarray(label_list).T,  # Ytrain / Ytest / Ytest1
+    cls4 : pre_list
+}
+```
+
+这里的 `method` 是文件夹名（比如某分类方法、某类别名称），是 **字符串**。
+但后续 MATLAB 的 U-test 和 ELM 脚本里，默认假定标签是数值 0/1：
+
+```matlab
+ind_train=find(train_label==0);
+ind1_train=find(train_label==1);
+...
+```
+
+以及：
+
+```matlab
+train_label = double(Ytrain)';
+...
+ind_train=find(train_label==0);
+```
+
+如果 `Ytrain/Ytest/Ytest1` 里存的是字符串（或者字符向量），`double(Ytrain)` 会变成字符的 ASCII 码，`==0` / `==1` 永远不会成立，整个 Utest 完全错误，甚至直接报错（如果是 cell array）。
+所以：
+
+* 要么在 Python 中就把标签从 `method` 转成数值（例如 0/1），再存到 `Y*`；
+* 要么在 MATLAB 中先从字符串映射到 0/1，再参与 U 检验和建模。
+
+目前两边的约定明显是脱节的。
+
+### 2. 1D array 与 MATLAB 维度的隐式假设
+
+```python
+column_means = column_sums / num_rows   # shape: (3904,)
+pre_list.append(column_means)
+...
+'Xtrain': pre_list
+```
+
+`pre_list` 是“样本数 × 特征维”的二维数组（每个 element 是长度 3904 的 1D array）。
+在 `savemat` 时会被转换成 N×D 矩阵，MATLAB 那边用 `train(:,i)` 抽特征列，这个假设是合理的。不过：
+
+* `np.asarray(label_list).T` 对一维数组 `.T` 没有任何作用；
+* MATLAB 读取后，`Ytrain` 是 1×N 行向量，而 MATLAB 脚本最后都用 `Ytrain'` 转成 N×1 列向量，虽然能跑，但这个转换是隐式行为，最好明确保证 Python 侧就输出 N×1 的 double array，避免不必要的转置和类型风险。
+
+### 3. 数据匹配方式效率低且易错
+
+现有逻辑：
+
+* 对 log 文件每一行取 `num = line.split('/')[-2]`；
+* 再遍历 `dataset_path` 下所有 `method`、所有 `patient`，逐个比较 `if num == patient`；
+* 找到才加载该病人的 `.mat`。
+
+问题：
+
+* 时间复杂度非常高：log 共有 N 行，每个 `method` 下有 P 个 patient，则是 O(N×方法数×病人总数)。
+* 一旦目录里有额外的文件/子文件夹，或者 patient 名称不完全匹配（大小写、空格等），就会找不到样本，静默丢失数据。
+
+建议显式构造路径（前提是 log 里信息足够），例如：
+
+```python
+patient_path = os.path.join(dataset_path, method, num)
+data_path = os.path.join(patient_path, f"{num}.mat")
+```
+
+并增加异常检查，避免悄悄丢样本。
+
+### 4. 小的问题
+
+* `column_sums = np.sum(mat_data, axis=0)` 这一行重复写了一次，没有意义。
+* `data_dict = {}` 声明后完全没用。
+* 所有路径写死在代码里，可读性和可移植性较差（不是逻辑错误，但维护成本高）。
+
+---
+
+## 三、MATLAB 脚本 1：归一化（feature_normalized.mat）
+
+这一段的主要逻辑是：
+
+* 按列（特征）对训练集做 `zscore`；
+* 使用训练集的均值和标准差归一化 test 和 test1；
+* 把结果覆盖写回 `Xtrain/Xtest/Xtest1` 并保存。
+
+逻辑上总体没问题，但有几点可以注意：
+
+### 1. 标签没有参与处理
+
+```matlab
+train = Xtrain; train_label = Ytrain; 
+test = Xtest; test_label = Ytest;
+test1 = Xtest1; test_label1 = Ytest1;
+...
+save('feature_normalized.mat','Xtrain','Ytrain','Xtest','Ytest','Xtest1','Ytest1');
+```
+
+* `train_label/test_label/test_label1` 在归一化过程中完全没用到；
+* 而且如果 Python 导出的 `Y*` 不是 double 数值，而是字符串/cell，这里也不会报错，因为你只是原样写回去了。
+  真正出问题是在 U-test 和 ELM 的脚本里，所以“错误被延迟”了。
+
+### 2. 循环实现可以 vectorize（性能问题）
+
+现在对每个特征、每个样本用双层 `for` 写归一化，正确但效率较低。实际上可以一次性处理：
+
+```matlab
+Xtrain = zscore(train);     % 每列 zscore
+meanstd(1,:) = mean(train, 1);
+meanstd(2,:) = std(train, 0, 1);
+
+Xtest  = (test  - meanstd(1,:)) ./ meanstd(2,:);
+Xtest1 = (test1 - meanstd(1,:)) ./ meanstd(2,:);
+```
+
+当前写法不是逻辑错误，只是效率和代码简洁度较差。
+
+---
+
+## 四、MATLAB 脚本 2：U 检验特征选择（feature_Utest_Part1_VP）
+
+这一段有多个严重问题。
+
+### 1. 测试集标签赋错（明显的 bug）
+
+```matlab
+train = Xtrain; train_label = Ytrain; test = Xtest; test_label = Ytest;
+test1 = Xtest1; test_label0 = Ytest1;
+Xtrain = double(Xtrain); train_label = double(Ytrain)';
+test = double(Xtest); test_label = double(Ytest1)';
+test1 = double(Xtest1); test_label1 = double(Ytest1)';
+```
+
+这里本来已经有：
+
+```matlab
+test_label = Ytest;
+```
+
+但随后又写了一句：
+
+```matlab
+test_label = double(Ytest1)';
+```
+
+导致 test 集的标签实际上来自 `Ytest1`，完全错位。
+后面做 Utest 时：
+
+```matlab
+utest=Xtest(:,i);
+ind_test=find(test_label==0);
+...
+```
+
+就完全是在用 “Xtest 的特征 + test1 的标签” 做统计检验，结果毫无意义。
+
+正确写法应该是：
+
+```matlab
+test = double(Xtest);  test_label  = double(Ytest)';
+test1 = double(Xtest1); test_label1 = double(Ytest1)';
+```
+
+### 2. 使用 test 和 test1 做特征筛选 → 严重的数据泄漏
+
+```matlab
+p_train = mwwtest(N_train',P_train');    % 训练集 p
+p_test  = mwwtest(N_test',P_test');      % 测试集 p
+p_test1 = mwwtest(N_test1',P_test1');    % 外测集 p
+
+...
+
+if A<0.05 && B<0.05
+    cof = cof+1;
+    index_utest(1,cof) = i;
+end
+```
+
+这里 `A` 是 train 的 p，`B` 是 test 的 p，`C` 是 test1 的 p，但条件只用 A 和 B：
+
+* 特征选择条件直接依赖测试集（甚至可能包括外测集 test1，如果你加上 C）；
+* 这已经把 test/test1 的标签信息“泄漏”到了特征选择步骤中。
+
+结果是：
+
+* 你的特征子集是根据 test/test1 的表现挑出来的；
+* 再用这些特征在 test/test1 上做模型评估，得到的 AUC 会严重偏高，不再是独立评估。
+
+**原则上：特征选择只能用训练集（或者交叉验证的训练折），测试集应当严格独立。**
+
+如果你想使用 U-test + MRMR 的组合，正确方式应该是：
+
+* 所有的统计检验、MRMR 都只在训练集 `Xtrain/Ytrain` 上做；
+* 得到索引 `index_utest`/`index_mrmr` 后，再统一应用到 `Xtrain/Xtest/Xtest1`；
+* test/test1 只用于模型评估，不参与任何一步“选择”。
+
+### 3. 计算了 test1 的 p 值却完全没用
+
+```matlab
+p_test1=mwwtest(N_test1',P_test1');
+testp_data1(i)=p_test1;
+...
+C = testp_data1(1,i);
+if A<0.05 && B<0.05
+```
+
+* `C = testp_data1(1,i);` 读出来，但随后没参与条件判断；
+* 如果你本意是要求三个集合都显著（如 `A<0.05 && B<0.05 && C<0.05`），现在逻辑并未实现；
+* 如果本意是将 test1 完全独立，只用 train 做 Utest，那 `p_test1` 根本不该计算。
+
+目前呈现的是“一边计算 test1 的 p 值，一边又不使用”，只会混淆逻辑。
+
+### 4. 标签仍然假定是 0/1 double（与 Python 输出不一致）
+
+```matlab
+train_label = double(Ytrain)';
+...
+ind_train=find(train_label==0);
+ind1_train=find(train_label==1);
+```
+
+这回到了前面 Python 的问题：如果 `Ytrain` 是字符串，那么这里这个 `double()` 要么报错，要么得到 ASCII 码。
+任何情况下 `==0` / `==1` 基本都不会成立，或者得到完全错误的分组，Utest 的结果也是错误的。
+
+### 5. 抽取新特征矩阵的代码虽然逻辑上没问题，但有一些细节
+
+```matlab
+Xtest = [];
+Xtest1 = [];
+Xtrain = [];
+[x,y] = size(index_utest);
+for j = 1:y
+    A = index_utest(1,j);
+    Xtrain(:,j) = train(:,A);
+    Xtest(:,j) = test(:,A);
+    Xtest1(:,j) = test1(:,A);
+end
+```
+
+* 假定 `index_utest` 是 1×F 行向量，`size(index_utest)` 得到 x=1, y=F；
+  只用 `y` 没问题，但 `x` 完全没用；
+* 这样重建后的 `Xtrain/Xtest/Xtest1` 是 “样本 × 选中特征数”。如果后续 MRMR 和 ELM 的实现也是按照“列为特征”处理，这样是OK的。
+
+---
+
+## 五、MATLAB 脚本 3：ELM 训练与模型筛选
+
+这一段既有明显 bug，也有严重的评估设计问题。
+
+### 1. 归一化 test/test1 后又被覆盖（明显 bug）
+
+```matlab
+% 训练集归一化
+X_train = zscore(F_Xtrain');
+X_train = X_train';
+MEAN    = mean(F_Xtrain');
+STD     = std(F_Xtrain');
+
+...
+for i = 1:x
+    X_test(i,:)   = (F_Xtest(i,:)-MEAN(1,i))./STD(1,i);
+    X_test1(i,:)  = (F_Xtest1(i,:)-MEAN(1,i))./STD(1,i);
+end
+X_test  = F_Xtest;
+X_test1 = F_Xtest1;
+```
+
+逻辑应该是：
+
+* 用训练集的 `MEAN / STD` 对 `F_Xtest`、`F_Xtest1` 做归一化，得到 `X_test`、`X_test1`；
+* 然后用归一化后的 `X_test`、`X_test1` 去预测 AUC。
+
+但是最后两行：
+
+```matlab
+X_test  = F_Xtest;
+X_test1 = F_Xtest1;
+```
+
+直接把刚刚归一化好的 `X_test/X_test1` 全部覆盖成“未归一化”的版本。
+结果：
+
+* 训练时用的是 zscore 之后的 `X_train`；
+* 测试时用的是 **未经相同归一化** 的 `X_test/F_Xtest`。
+
+这会导致训练/测试特征空间不一致，模型性能不稳定甚至完全错误。
+
+正确做法是：删除这两行覆盖代码。
+
+### 2. 再次标准化，且没考虑 0 方差特征
+
+你在 Utest 之前已经有一个归一化脚本，这里又对 `MRMRfeature_3_25.mat` 做了一次 `zscore`：
+
+```matlab
+X_train = zscore(F_Xtrain');
+X_train = X_train';
+MEAN    = mean(F_Xtrain');
+STD     = std(F_Xtrain');
+```
+
+如果 MRMR 输入的已经是 zscore 后的特征，这里其实是在对“已经标准化”的特征再做一次标准化。
+这在理论上不会导致严重问题（只是做了线性变换），但会让流程更难解释，也不易重现实验。
+另外，这里对 `STD` 没有任何防护，一旦某个特征在训练集上方差为 0，会直接除以 0 得到 Inf/NaN，而你的代码并未像脚本 1 那样做 `isinf`/`isnan` 处理。
+
+### 3. 用 test/test1 反复挑选“好模型”（严重数据泄漏）
+
+```matlab
+AUC_test00 = 0.70;
+while(1)
+    for k =1:100
+        G = randi([2 5],1,1);
+        [IW,B,B0,LW,TF,TYPE] = elmtrain(X_train,T_Ytrain,G,'sig',0,0);
+        ...
+        [CUT_train,AUC_train]   = YouDen(Tn_train,T_Ytrain);
+        [CUT_test,AUC_test]     = YouDen(Tn_test,T_Ytest);
+        [CUT_test1,AUC_test1]   = YouDen(Tn_test1,T_Ytest1);
+        ...
+        if  AUC_test > AUC_test00  && AUC_train>=AUC_test  && AUC_test1>=AUC_test00 ...
+              && (AUC_train - AUC_test1)<0.05  && AUC_train>0.80
+            save(pathmat','Model','AUC','Ytrain','Ytest','Ytest1')
+        end
+    end
+end
+```
+
+这里存在两个层面的“泄漏”：
+
+1. **test/test1 被用来调参 / 选模型**
+
+   * 你随机选择隐藏层节点数 `G` 与随机权重，在 test/test1 上计算 AUC；
+   * 挑出 “AUC 高、三集合接近” 的模型保存；
+   * 这个过程本质上是在 test/test1 上做大量搜索，找到最适合这两个集合的模型；
+
+2. **随后仍然用同一个 test/test1 作为“最终评估”**（典型过拟合）。
+   这样得到的 test/test1 AUC 不能再被视作泛化性能，属于严重的 **optimistic bias**。
+   正确的做法应该是：
+
+   * 只用 train 做训练与交叉验证（或者把现有的 test 当作 validation）；
+   * 在 validation 上做超参数/模型选择；
+   * 把 test1 留作最终一次性评估，整个调参过程中绝不能用 test1 做任何决策。
+
+如果你想保留三集合结构，一个较合理的安排是：
+
+* train：模型训练 + 交叉验证内部划分；
+* test：用于调参与特征选择（相当于 validation）；
+* test1：完全不参与任何训练/选择，用于最终汇报结果。
+
+当前代码则是把 train/test/test1 三者都卷入“调参+选模型”过程。
+
+### 4. 死循环与阈值不更新
+
+```matlab
+AUC_test00 = 0.70;
+while(1)
+    for k =1:100
+        ...
+        if AUC_test > AUC_test00 ...
+            save(...)
+            %AUC_test00 = AUC_test; 
+        end
+    end
+end
+```
+
+* `while(1)` 是无限循环，本身没错（你可以手动停止），但从实验管理角度非常不利；
+* `AUC_test00` 从 0.70 一直没更新（更新代码被注释掉了），意味着；
+
+  * 只要模型满足阈值条件，就会一直保存，不会变得更严格；
+  * 会产生大量模型文件，完全没有“只保留当前最优”的机制；
+* 如果你原意是“不断提升 AUC_test00，保留当前最好模型”，应该取消注释：
+
+```matlab
+AUC_test00 = AUC_test;
+```
+
+并适当设置迭代次数或停止条件。
+
+### 5. 其他一些小问题
+
+* `(AUC_test - AUC_test1)<0.05` 在 if 条件里写了两次，逻辑上是重复的；
+* `Result` 结构体被构造，但没有被保存；
+* 变量命名依旧假设标签已经是 0/1 数值，如果前面的 Python–MATLAB 标签映射问题没解决，整个训练阶段也会基于错误的标签。
+
+---
+
+## 六、总结：关键问题清单 & 建议
+
+从整体看，流程设计思路是清晰的（特征提取 → 归一化 → Utest/MRMR 选特征 → ELM 分类），但存在一些会直接影响结果可信度的严重问题：
+
+1. **Python 生成的标签是字符串，而 MATLAB 中全部按 0/1 数值使用。**
+   → 必须统一标签格式：在 Python 中映射到 0/1（或 1/2），或者在 MATLAB 读取后进行转换。
+
+2. **Utest 特征选择阶段：**
+
+   * test 的标签被误用为 `Ytest1`（明显 bug）；
+   * 使用 test/test1 标签做特征筛选，严重数据泄漏；
+   * 计算了 test1 的 p 值却未参与筛选逻辑，逻辑不清晰。
+
+3. **ELM 训练阶段：**
+
+   * 归一化后的 `X_test/X_test1` 被覆盖成未归一化版本（导致训练与测试特征空间不一致）；
+   * 大量使用 test/test1 结果来筛选和保存模型，导致评估严重乐观偏倚；
+   * 无限循环 + 阈值不更新，模型管理混乱。
+
+4. **整个 pipeline 中，test/test1 从特征选择到模型选择都被参与决策，**
+   → 理论上 test1 至少应当在特征选择和调参阶段完全“不可见”，只在最后一步做一次性评估。
+
+如果你愿意，下一步我可以帮你按以下目标改写整套流程：
+
+* 先从 Python 到 MATLAB 把标签统一成规范的 0/1 double；
+* Utest、MRMR 只在训练集上做特征筛选；
+* 明确 train/val/test1 的角色，移除 test1 的“参与调参”环节；
+* 修正归一化与 ELM 部分的具体代码 bug。

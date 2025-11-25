@@ -1,0 +1,26 @@
+{
+  "data_types": {
+    "CT": {
+      "feature_root": "/path/to/jiangmen_CT_CMTA/VGG16/feature_extract_3_1",
+      "log_root": "/path/to/jiangmen_CT_CMTA",
+      "log_files": {
+        "train": "train_CT_log.txt",
+        "test": "test_CT_log.txt",
+        "test1": "test1_CT_log.txt"
+      },
+      "split_dirs": {
+        "train": "train_data",
+        "test": "test_data",
+        "test1": "test1_data"
+      },
+      "mat_key": "feature_map"
+    }
+  },
+  "elm": {
+    "n_trials": 200,
+    "hidden_range": [2, 5],
+    "auc_floor": 0.7,
+    "max_gap": 0.05,
+    "random_state": 42
+  }
+}

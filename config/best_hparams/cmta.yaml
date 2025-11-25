@@ -1,0 +1,59 @@
+# CMTA模型最佳超参数配置
+
+# 基于实验验证的最优参数设置
+
+data:
+  modalities:
+    - A
+    - P
+  image_size: 224
+  num_workers: 4
+
+model:
+  name: cmta
+  num_classes: 2
+
+  # CMTA核心参数
+  cmta:
+    feat_dim: 1024
+    num_cluster: 64
+    bank_length: 16
+    update_ratio: 0.1
+    model_size: small
+
+training:
+  batch_size: 1  # CMTA使用小批次训练
+  epochs: 50
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  loss_type: cohort
+  optimizer: adamw
+  scheduler: cosine
+  early_stop_patience: 15
+  early_stop_enabled: false  # CMTA通常需要完整训练
+  device: cuda
+
+  # CMTA训练特定参数
+  cmta:
+    alpha: 0.5      # 队列损失权重
+    beta: 0.1       # 辅助损失权重
+    seed: 1
+    update_rat: 0.1 # 知识记忆更新率
+
+augmentation:
+  horizontal_flip: false  # 特征数据通常不需要几何增强
+  rotation_degrees: 0
+  normalize_mean: 0.5
+  normalize_std: 0.5
+
+experiment:
+  name: "cmta_multimodal_fusion"
+  seed: 42
+  output_dir: "./outputs/cmta"
+  save_best_only: true
+  log_interval: 10
+
+# 特殊说明：
+# 1. batch_size设为1是因为CMTA处理的是患者级别的特征序列
+# 2. cohort损失函数用于队列学习和知识分解
+# 3. 禁用early_stop以确保知识记忆库充分学习
