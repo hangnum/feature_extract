@@ -125,8 +125,8 @@ def main():
             if split_feature_dir.exists():
                 align_patient_features(
                     modalities=['A', 'P'],
-                    feature_dir=str(split_feature_dir),
-                    output_dir=str(split_feature_dir / 'aligned')
+                    feature_dir=split_feature_dir,
+                    output_dir=split_feature_dir / 'aligned'
                 )
 
 
