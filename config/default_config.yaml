@@ -10,22 +10,37 @@ data:
   num_workers: 8
 
 model:
-  name: resnet18  # resnet18, resnet50, swin_t
+  name: resnet18  # resnet18, resnet50, swin_t, cmta
   pretrained: true
   num_classes: 2
   freeze_stages: 0  # ResNet50时设为3
+
+  # CMTA特定参数
+  cmta:
+    feat_dim: 1024
+    num_cluster: 64
+    bank_length: 16
+    update_ratio: 0.1
+    model_size: small  # small, large
 
 training:
   batch_size: 64
   epochs: 100
   learning_rate: 0.0001
   weight_decay: 0.0001
-  loss_type: ce  # ce, focal, asymmetric
+  loss_type: ce  # ce, focal, asymmetric, cohort
   optimizer: adamw  # adam, sgd, adamw
   scheduler: cosine  # cosine, step, plateau
   early_stop_patience: 10
   early_stop_enabled: true
   device: cuda
+
+  # CMTA特定训练参数
+  cmta:
+    alpha: 0.5  # 队列损失权重
+    beta: 0.1   # 辅助损失权重
+    seed: 1
+    update_rat: 0.1  # 知识记忆更新率
 
 augmentation:
   horizontal_flip: true
@@ -36,6 +51,6 @@ augmentation:
 experiment:
   name: ""
   seed: 42
-  output_dir: "D:\\outputs\\feature_extract"
+  output_dir: "./outputs/feature_extract"
   save_best_only: true
   log_interval: 10
