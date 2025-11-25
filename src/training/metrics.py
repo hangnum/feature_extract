@@ -6,13 +6,9 @@
 
 import numpy as np
 import torch
-from sklearn.metrics import (
-    accuracy_score,
-    roc_auc_score,
-    confusion_matrix,
-    classification_report
-)
 from typing import Tuple, Dict
+
+from src.utils.metrics import calculate_metrics as base_calculate_metrics
 
 
 def calculate_metrics(
@@ -21,7 +17,7 @@ def calculate_metrics(
     y_prob: np.ndarray
 ) -> Dict[str, float]:
     """
-    计算分类指标
+    计算分类指标（复用通用实现，补充敏感性与特异性）
     
     Args:
         y_true: 真实标签
@@ -31,34 +27,17 @@ def calculate_metrics(
     Returns:
         指标字典
     """
-    # 准确率
-    acc = accuracy_score(y_true, y_pred)
-    
-    # AUC
-    try:
-        auc = roc_auc_score(y_true, y_prob)
-    except:
-        auc = 0.0
-    
-    # 混淆矩阵
-    cm = confusion_matrix(y_true, y_pred)
-    
-    # 敏感性（召回率）和特异性
+    metrics = base_calculate_metrics(y_true, y_pred, y_prob)
+
+    cm = np.array(metrics.get('confusion_matrix', []))
     if cm.shape == (2, 2):
         tn, fp, fn, tp = cm.ravel()
-        sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+        metrics['sensitivity'] = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        metrics['specificity'] = tn / (tn + fp) if (tn + fp) > 0 else 0.0
     else:
-        sensitivity = 0.0
-        specificity = 0.0
-    
-    metrics = {
-        'accuracy': acc,
-        'auc': auc,
-        'sensitivity': sensitivity,
-        'specificity': specificity
-    }
-    
+        metrics['sensitivity'] = 0.0
+        metrics['specificity'] = 0.0
+
     return metrics
 
 

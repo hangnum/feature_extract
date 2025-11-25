@@ -22,12 +22,32 @@ class DataConfig:
 
 
 @dataclass
+class CMTAConfig:
+    """CMTA模型特定配置"""
+    feat_dim: int = 1024
+    num_cluster: int = 64
+    bank_length: int = 16
+    update_ratio: float = 0.1
+    model_size: str = "small"  # small, large
+
+
+@dataclass
 class ModelConfig:
     """模型相关配置"""
-    name: str = "resnet18"  # resnet18, resnet50, swin_t
+    name: str = "resnet18"  # resnet18, resnet50, swin_t, cmta
     pretrained: bool = True
     num_classes: int = 2
     freeze_stages: int = 0  # ResNet50时设为3
+    cmta: CMTAConfig = field(default_factory=CMTAConfig)
+
+
+@dataclass
+class CMTATrainingConfig:
+    """CMTA训练特定配置"""
+    alpha: float = 0.5  # 队列损失权重
+    beta: float = 0.1   # 辅助损失权重
+    seed: int = 1
+    update_rat: float = 0.1  # 知识记忆更新率
 
 
 @dataclass
@@ -37,12 +57,13 @@ class TrainingConfig:
     epochs: int = 100
     learning_rate: float = 1e-4
     weight_decay: float = 1e-4
-    loss_type: str = "ce"  # ce, focal, asymmetric
+    loss_type: str = "ce"  # ce, focal, asymmetric, cohort
     optimizer: str = "adam"  # adam, sgd, adamw
     scheduler: str = "cosine"  # cosine, step, plateau
     early_stop_patience: int = 10
     early_stop_enabled: bool = True
     device: str = "cuda"
+    cmta: CMTATrainingConfig = field(default_factory=CMTATrainingConfig)
     
 
 @dataclass

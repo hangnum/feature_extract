@@ -133,8 +133,8 @@ class FeatureExtractor:
 
 def align_patient_features(
     modalities: List[str],
-    feature_dir: str,
-    output_dir: str
+    feature_dir: Path,
+    output_dir: Path
 ) -> None:
     """
     对齐不同模态的病人特征
@@ -148,8 +148,6 @@ def align_patient_features(
     """
     logger.info("开始对齐多模态特征...")
     
-    feature_dir = Path(feature_dir)
-    output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # 读取每个模态的特征信息
