@@ -1,2 +1,0 @@
-[console_scripts]
-kmeans_pytorch = kmeans_pytorch.main:main
