@@ -68,7 +68,8 @@ class Trainer:
         
         # 创建输出目录
         self.output_dir = Path(output_dir)
-        self.checkpoint_dir = self.output_dir / 'checkpoints'
+        # 将检查点按实验名称隔离，避免不同模型/模态互相覆盖导致 state_dict 不匹配
+        self.checkpoint_dir = self.output_dir / 'checkpoints' / experiment_name
         self.log_dir = self.output_dir / 'logs' / experiment_name
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.log_dir.mkdir(parents=True, exist_ok=True)

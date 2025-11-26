@@ -8,11 +8,9 @@ CMTA模型的数据加载器
 """
 
 import os
-import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 import scipy.io as scio
-import pandas as pd
 from typing import Tuple, Optional, Dict
 
 
@@ -171,7 +169,7 @@ class CMTADataLoader:
 
     def create_dataloaders(self,
                           data_dir: str,
-                          modalities: list = ['A', 'P']) -> Tuple[DataLoader, DataLoader, DataLoader]:
+                          modalities: Optional[list[str]] = None) -> Tuple[DataLoader, DataLoader, DataLoader]:
         """
         创建训练、验证和测试数据加载器
 
@@ -183,6 +181,8 @@ class CMTADataLoader:
             train_loader, val_loader, test_loader
         """
         # 构建文件路径
+        if modalities is None:
+            modalities = ['A', 'P']
         train_files = self._build_file_paths(data_dir, 'train', modalities)
         val_files = self._build_file_paths(data_dir, 'val', modalities)
         test_files = self._build_file_paths(data_dir, 'test', modalities)

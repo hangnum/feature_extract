@@ -185,7 +185,8 @@ class Config:
                     break
         
         # 3) Update experiment name using final model name and modality
-        if hasattr(args, 'modality'):
+        # 若配置中已指定实验名，则不自动覆盖，便于断点续训或复现实验
+        if hasattr(args, 'modality') and not self.experiment.name:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             self.experiment.name = f"{self.model.name}_{args.modality}_{timestamp}"
 

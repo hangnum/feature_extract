@@ -91,8 +91,7 @@ def get_scheduler(optimizer, config, steps_per_epoch):
             optimizer,
             mode='max',
             factor=0.5,
-            patience=5,
-            verbose=True
+            patience=5
         )
     else:
         scheduler = None

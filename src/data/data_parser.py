@@ -5,7 +5,7 @@
 """
 
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 import logging
 
@@ -14,7 +14,7 @@ logger = logging.getLogger("feature_extract")
 
 def parse_data_directory(
     root_dir: str,
-    modalities: List[str] = ['A', 'P']
+    modalities: Optional[List[str]] = None
 ) -> Dict[str, Dict]:
     """
     Parse medical image directory into a patient-level dictionary.
@@ -24,6 +24,10 @@ def parse_data_directory(
       - root_dir/Grade/hospital/label/patient_id/modality/image.png
     """
     root_path = Path(root_dir)
+
+    # 处理默认的模态列表
+    if modalities is None:
+        modalities = ['A', 'P']
 
     if not root_path.exists():
         raise FileNotFoundError(f"数据目录不存在: {root_dir}")  # 编码修复：将乱码恢复为中文注释
@@ -89,7 +93,7 @@ def parse_data_directory(
 
 def validate_patient_data(
     patient_dict: Dict[str, Dict],
-    required_modalities: List[str] = ['A', 'P']
+    required_modalities: Optional[List[str]] = None
 ) -> Tuple[Dict[str, Dict], List[str]]:
     """
     验证病人数据，过滤缺失模态的病人
@@ -103,9 +107,13 @@ def validate_patient_data(
     Returns:
         (有效的病人数据字典, 被过滤的病人ID列表)
     """
+    # 处理默认的模态列表
+    if required_modalities is None:
+        required_modalities = ['A', 'P']
+
     valid_patients = {}
     filtered_patients = []
-    
+
     for patient_id, patient_info in patient_dict.items():
         # 检查每个必须的模态是否都有数据
         is_valid = True

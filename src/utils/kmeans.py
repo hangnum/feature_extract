@@ -11,7 +11,7 @@ def kmeans(X: torch.Tensor,
            num_clusters: int,
            cluster_centers: Optional[torch.Tensor] = None,
            distance: str = 'euclidean',
-           device: torch.device = torch.device('cpu'),
+           device: Optional[torch.device] = None,
            tqdm_flag: bool = False,
            seed: int = 1,
            tol: float = 1e-4,
@@ -34,6 +34,10 @@ def kmeans(X: torch.Tensor,
         cluster_ids: 聚类标签 [N]
         cluster_centers: 聚类中心 [num_clusters, D]
     """
+    # 处理默认设备
+    if device is None:
+        device = torch.device('cpu')
+
     if distance != 'euclidean':
         raise ValueError("目前只支持欧几里得距离")
 
