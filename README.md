@@ -112,13 +112,6 @@ feature_extract/
 │   │   └── metrics.py           # 评估指标
 │   ├── feature_extraction/      # 特征提取模块
 │   │   └── extractor.py         # 特征提取器
-│   ├── sequence_fusion/         # 时序融合模块
-│   │   ├── sequence_engine.py   # 时序融合引擎
-│   │   ├── sequence_network.py  # 时序网络
-│   │   ├── sequence_main.py     # 主程序入口
-│   │   ├── datasets/            # 时序数据集
-│   │   ├── kmeans/              # GPU K-means实现
-│   │   └── utils/               # 时序工具函数
 │   ├── elm/                     # ELM极限学习机模块
 │   │   ├── pipeline.py          # ELM流水线
 │   │   ├── config.py            # ELM配置
@@ -289,18 +282,7 @@ python scripts/manage.py elm \
 - `--auc_floor`: 最小AUC阈值
 - `--alpha_train/test`: U-test p值阈值
 
-#### 6. 时序融合（可选）
-
-```bash
-# 运行时序多模态融合
-python src/sequence_fusion/sequence_main.py \
-    --config config/sequence_fusion.yaml \
-    --modalities A P \
-    --epochs 50 \
-    --device cuda:0
-```
-
-#### 7. 结果可视化
+#### 6. 结果可视化
 
 ```bash
 # 绘制训练曲线
@@ -863,10 +845,7 @@ python scripts/manage.py cmta --model_size small --epochs 100
 # 3. ELM聚合
 python scripts/manage.py elm --data_type CT --n_trials 200
 
-# 4. 时序融合（可选）
-python src/sequence_fusion/sequence_main.py --epochs 50
-
-# 5. 结果对比与可视化
+# 4. 结果对比与可视化
 python scripts/manage.py visualize --history_csv outputs/*/training_history.csv
 tensorboard --logdir outputs/
 ```
@@ -877,10 +856,9 @@ tensorboard --logdir outputs/
 
 1. **CMTA多模态融合**：使用跨模态Transformer进行端到端融合训练
 2. **ELM特征聚合**：通过极限学习机实现高效特征聚合与优化
-3. **Sequence时序分析**：利用时序融合模型处理动态多模态数据
-4. **算法对比研究**：综合评估不同融合策略的性能表现
-5. **可视化分析**：使用t-SNE、UMAP等工具进行特征降维可视化
-6. **临床部署**：将优化后的模型集成到临床诊断系统中
+3. **算法对比研究**：综合评估不同融合策略的性能表现
+4. **可视化分析**：使用t-SNE、UMAP等工具进行特征降维可视化
+5. **临床部署**：将优化后的模型集成到临床诊断系统中
 
 ## 技术特性
 

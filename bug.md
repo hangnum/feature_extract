@@ -10,7 +10,8 @@
 6. 使用分层抽样均衡划分训练集和内验集中不同标签的病人数量
 7. 特征融合（简易）：读取已经提取出来的模态特征，压缩并拼接
 8. 实现管理命令（subcommand）来调用整个项目功能
-9. `src/sequence_fusion/sequence_main.py` 迁移后项目根路径设置错误（指向 `.../src` 而非仓库根），导致依赖导入/工作目录异常；已改为 `script_dir.parents[2]` 并通过 `conda run -n venv python -m compileall src/sequence_fusion` 冒烟验证。
+9. `src/sequence_fusion/sequence_main.py` 迁移后项目根路径设置错误（指向 `.../src` 而非仓库根），导致依赖导入/工作目录异常；已改为 `script_dir.parents[2]` 并通过 `conda run -n venv python -m compileall src/sequence_fusion` 冒烟验证。（模块现已移除，记录保留）
+10. resnet50 在出现更优结果时未更新最佳超参与最佳成绩（修复：统一模型名小写写入 best_hparams，并回填最新 resnet50_A 运行的 best_metrics）
 
 ## 未解决
 
@@ -18,4 +19,6 @@
 
 ## 添加功能
 
-(暂无)
+1. 在微调时增添数据增强（如随机裁剪、随机水平翻转、随机垂直翻转等）
+2. 微调时，如果同模型和同数据集以及同超参数的结果已经存在，
+    则直接加载其最好成绩作为best_val_auc最好成绩，而非每一次都重新保存

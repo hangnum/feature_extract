@@ -7,10 +7,10 @@ data:
   image_size: 224
   num_workers: 8
 model:
-  name: resnet50
+  name: resnet18
   pretrained: true
   num_classes: 2
-  freeze_stages: 3
+  freeze_stages: 0
   cmta:
     feat_dim: 1024
     num_cluster: 64
@@ -19,13 +19,13 @@ model:
     model_size: small
 training:
   batch_size: 64
-  epochs: 200
+  epochs: 100
   learning_rate: 0.0001
   weight_decay: 0.0001
   loss_type: ce
   optimizer: adamw
   scheduler: cosine
-  early_stop_patience: 100
+  early_stop_patience: 10
   early_stop_enabled: true
   device: cuda
   cmta:
@@ -39,17 +39,31 @@ augmentation:
   normalize_mean: 0.5
   normalize_std: 0.5
 experiment:
-  name: resnet50_A_20251125_153612
+  name: resnet18_P_20251126_161706
   seed: 42
   output_dir: ./outputs/feature_extract
   save_best_only: true
   log_interval: 10
 best_metrics:
-  epoch: 119
-  val_loss: 2.8580306857824325
-  val_auc: 0.5651557949912638
-  val_accuracy: 0.5761562998405104
-  val_sensitivity: 0.46534653465346537
-  val_specificity: 0.6288235294117647
-  timestamp: '2025-11-26T14:06:01'
-updated_at: '2025-11-26T14:06:01'
+  epoch: 3
+  val_loss: 0.867253664880991
+  val_auc: 0.5380345574239963
+  val_accuracy: 0.6022319649262654
+  val_sensitivity: 0.33910891089108913
+  val_specificity: 0.7272192827748384
+  timestamp: '2025-11-26T16:19:05.270425'
+test_metrics:
+  accuracy: 0.45156418554476807
+  precision: 0.4444266678467757
+  recall: 0.45156418554476807
+  f1: 0.43706937234338966
+  auc: 0.42038272305183333
+  confusion_matrix:
+  - - 1430
+    - 911
+  - - 1631
+    - 663
+  sensitivity: 0.2890148212728858
+  specificity: 0.6108500640751815
+  loss: 1.400586303986915
+updated_at: '2025-11-26T16:19:07.658336'

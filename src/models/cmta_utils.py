@@ -417,6 +417,23 @@ class Interaction_Estimator(nn.Module):
         return interaction
 
 
+class SpecificityEstimator(nn.Module):
+    """特异性估计器 - 使用轻量 MLP 保留模态自有模式（迁移自 sequence_fusion）"""
+
+    def __init__(self, feat_len: int = 6, dim: int = 64):
+        super().__init__()
+        self.conv = MLP_Block(dim, dim)
+
+    def forward(self, feat: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            feat: [B, feat_len, dim] 输入模态特征
+        Returns:
+            torch.Tensor: [B, feat_len, dim] 特异性增强后的特征
+        """
+        return self.conv(feat)
+
+
 def Hungarian_Matching(centers, priors):
     """匈牙利匹配算法"""
     cost = torch.cdist(centers, priors, p=1).detach().cpu()

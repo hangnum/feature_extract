@@ -331,18 +331,26 @@ def main():
     else:
         logger.warning(f"未找到外验数据: {test_csv}，跳过外验评估")
 
-    # 保存最佳超参数（仅当验证 AUC 提升时更新）
+    # 保存最佳超参数（仅当验证 AUC 提升时更新；统一模型命名为小写避免 resnet50 文件不更新）
+    def _safe_float(val, default=-1.0):
+        try:
+            return float(val)
+        except Exception:
+            return default
+
     best_hparams_dir = Path(project_root) / 'config' / 'best_hparams'
     best_hparams_dir.mkdir(parents=True, exist_ok=True)
-    best_hparams_path = best_hparams_dir / f'{config.model.name}_{args.modality}.yaml'
+    model_key = config.model.name.lower()
+    modality_key = args.modality.upper()
+    best_hparams_path = best_hparams_dir / f'{model_key}_{modality_key}.yaml'
 
-    current_best_auc = best_metrics['val_auc'] if best_metrics else -1
-    previous_best_auc = -1
+    current_best_auc = _safe_float(best_metrics['val_auc']) if best_metrics else -1.0
+    previous_best_auc = -1.0
     if best_hparams_path.exists():
         try:
             prev_data = yaml.safe_load(best_hparams_path.read_text(encoding='utf-8'))
             if prev_data and isinstance(prev_data, dict):
-                previous_best_auc = prev_data.get('best_metrics', {}).get('val_auc', -1)
+                previous_best_auc = _safe_float(prev_data.get('best_metrics', {}).get('val_auc', -1.0))
         except Exception as e:
             logger.warning(f"读取历史最佳超参失败，将直接更新: {e}")
 

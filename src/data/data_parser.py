@@ -30,9 +30,9 @@ def parse_data_directory(
         modalities = ['A', 'P']
 
     if not root_path.exists():
-        raise FileNotFoundError(f"数据目录不存在: {root_dir}")  # 编码修复：将乱码恢复为中文注释
+        raise FileNotFoundError(f"数据目录不存在: {root_dir}")
 
-    logger.info(f"开始解析数据目录: {root_dir}")  # 编码修复：将乱码恢复为中文注释
+    logger.info(f"开始解析数据目录: {root_dir}")
 
     patient_data = {}
 
@@ -44,7 +44,7 @@ def parse_data_directory(
             rel_parts = parts[grade_idx + 1:]
 
             if len(rel_parts) < 5:
-                logger.warning(f"路径层级不足: {img_path}")  # 编码修复：将乱码恢复为中文注释
+                logger.warning(f"路径层级不足: {img_path}")
                 continue
 
             hospital = rel_parts[0]
@@ -57,7 +57,7 @@ def parse_data_directory(
             else:
                 # with fold
                 if len(rel_parts) < 6:
-                    logger.warning(f"路径层级不足（含fold）: {img_path}")  # 编码修复：将乱码恢复为中文注释
+                    logger.warning(f"路径层级不足（含fold）: {img_path}")
                     continue
                 label_str = rel_parts[2]
                 patient_id = rel_parts[3]
@@ -71,7 +71,7 @@ def parse_data_directory(
             elif label_str == 'grade1':
                 label = 1
             else:
-                logger.warning(f"未知标签: {label_str}, 跳过")  # 编码修复：将乱码恢复为中文注释
+                logger.warning(f"未知标签: {label_str}, 跳过")
                 continue
 
             if patient_id not in patient_data:
@@ -84,10 +84,10 @@ def parse_data_directory(
             patient_data[patient_id]['image_paths'][modality].append(str(img_path))
 
         except (ValueError, IndexError) as e:
-            logger.warning(f"解析失败: {img_path}, 错误: {e}")  # 编码修复：将乱码恢复为中文注释
+            logger.warning(f"解析失败: {img_path}, 错误: {e}")
             continue
 
-    logger.info(f"解析完成，共找到 {len(patient_data)} 个病人")  # 编码修复：将乱码恢复为中文注释
+    logger.info(f"解析完成，共找到 {len(patient_data)} 个病人")
 
     return patient_data
 
